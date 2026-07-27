@@ -30,3 +30,16 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Integración continua y despliegue
+
+El flujo de trabajo [.github/workflows/desplegar.yml](.github/workflows/desplegar.yml) valida y publica el proyecto:
+
+- Se ejecuta en cada `push` a `development` y a `main`, en los Pull Requests hacia `main` y de forma manual con `workflow_dispatch`.
+- Instala las dependencias con `pnpm install --frozen-lockfile`, analiza el código con `pnpm lint` y compila con `pnpm build`.
+- Comprueba que la compilación use la ruta base `/free-pdf/`, obligatoria para GitHub Pages.
+- Publica la carpeta `dist` en GitHub Pages **únicamente** en los `push` a `main`. La rama `development` nunca despliega.
+
+### Configuración necesaria en GitHub
+
+Para que el despliegue funcione hay que abrir **Settings → Pages** en el repositorio y elegir **GitHub Actions** como origen (*Source*). No se necesita ningún secreto ni token adicional.
