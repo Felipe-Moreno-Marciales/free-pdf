@@ -48,6 +48,9 @@ jobs:
       - name: Analizar el código
         run: pnpm lint
 
+      - name: Ejecutar las pruebas
+        run: pnpm pruebas
+
       - name: Compilar la aplicación
         run: pnpm build
 
