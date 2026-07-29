@@ -23,5 +23,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  /*
+   * Las pruebas se comprueban aparte, en `tsconfig.pruebas.json`. Así el código
+   * de la aplicación se valida sin los tipos de Node y no puede colarse por
+   * descuido una API que no existe en el navegador.
+   */
+  "include": ["src"],
+  "exclude": ["src/pruebas"]
 }
