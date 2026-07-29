@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "tipos": "tsc -b",
     "pruebas": "vitest run",
     "pruebas:vigilar": "vitest",
     "preview": "vite preview"
