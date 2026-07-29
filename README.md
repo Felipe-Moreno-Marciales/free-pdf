@@ -4,6 +4,22 @@ Aplicación web libre y de código abierto para trabajar con archivos PDF **sin 
 
 Free PDF no tiene servidor propio, no necesita registro y no envía tus documentos a ningún sitio: todo el procesamiento se ejecuta en tu equipo, con las capacidades del propio navegador.
 
+## Qué es Free PDF, y qué ha decidido no ser
+
+Es una **aplicación web estática** publicada en GitHub Pages. Eso no es un detalle de despliegue: es la decisión que define el proyecto.
+
+**Lo que hay:** procesamiento local en el navegador, Web Workers, WebAssembly, [PDF.js](https://mozilla.github.io/pdf.js/), [pdf-lib](https://pdf-lib.js.org/), [qpdf](https://github.com/qpdf/qpdf) compilado a WebAssembly, y código libre que puedes revisar entero.
+
+**Lo que deliberadamente no hay, y no va a haber:**
+
+- Sin backend, sin API de servidor, sin base de datos.
+- Sin cuentas, sin registro, sin correo electrónico.
+- Sin conversiones de Word, Excel ni PowerPoint. Hacerlas con fidelidad razonable exige LibreOffice, y eso exige un servidor.
+- Sin inteligencia artificial generativa ni modelos de lenguaje. Resumir o traducir exigiría o un modelo enorme descargado en tu navegador, o enviar tu documento a una API externa. Lo segundo rompería lo único que este proyecto promete.
+- Sin firma con participantes, sin almacenamiento remoto, sin Docker.
+
+Si una función no se puede hacer en tu navegador, **no se hace**. No se añade un servidor para conseguirla. Es lo que permite que la privacidad sea una consecuencia de la arquitectura y no una promesa que haya que creerse.
+
 ## Principios de privacidad
 
 La privacidad no es una promesa: es una consecuencia de cómo está construida la aplicación.
@@ -11,7 +27,7 @@ La privacidad no es una promesa: es una consecuencia de cómo está construida l
 - Los documentos y las imágenes se leen en memoria con las API del navegador (`File`, `Blob`, `ArrayBuffer`, `createImageBitmap` y `canvas`) y se procesan con [pdf-lib](https://pdf-lib.js.org/) y [PDF.js](https://mozilla.github.io/pdf.js/).
 - **Ningún archivo se sube a un servidor.** No hay backend ni ninguna petición de red que transporte tus documentos. El código no contiene `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` ni `sendBeacon`.
 - No se guarda nada en `localStorage`, `sessionStorage`, `IndexedDB` ni cookies: al recargar la página, todo desaparece. Eso incluye las fotografías tomadas con la cámara.
-- Todos los recursos que PDF.js necesita —el worker, las tablas de caracteres, las tipografías estándar, los módulos WebAssembly y los perfiles de color— se distribuyen **dentro del propio sitio**. No se usa ninguna red de distribución de contenidos (CDN) ni ningún servicio de terceros. Ver [Recursos locales de PDF.js](#recursos-locales-de-pdfjs).
+- Todos los recursos que PDF.js y OCR necesitan —trabajadores, WebAssembly, tablas, tipografías, perfiles de color y modelos de idioma— se distribuyen **dentro del propio sitio**. No se usa ninguna red de distribución de contenidos (CDN) ni ningún servicio de terceros. Ver [Recursos locales de PDF.js](#recursos-locales-de-pdfjs) y [docs/OCR.md](docs/OCR.md).
 - La cámara solo se enciende después de que la pulses tú, y sus fotografías no salen del dispositivo.
 - No hay telemetría, analítica, publicidad ni rastreo de ningún tipo.
 - Al ser software libre, puedes revisar el código y comprobarlo por ti mismo.
@@ -50,20 +66,62 @@ Las herramientas que trabajan con páginas muestran miniaturas reales, dibujadas
 
 ### Fase 3 — Seguridad y edición
 
-**En curso.** Las dos herramientas de contraseña están implementadas y verificadas; las cuatro restantes todavía no.
+**Completa.** Las seis herramientas están implementadas y verificadas.
 
 | Herramienta | Estado | Qué hace | Resultado |
 | ----------- | ------ | -------- | --------- |
 | **Proteger PDF** | Terminada | Cifra el documento con AES de 256 bits y graba los permisos elegidos. | `free-pdf-protegido.pdf` |
 | **Desbloquear PDF** | Terminada | Quita la contraseña de un documento protegido, con esa contraseña. | `free-pdf-desbloqueado.pdf` |
-| Editar y anotar | Pendiente | Añadir texto, dibujo, formas e imágenes sobre las páginas. | — |
-| Firma visual | Pendiente | Colocar una firma dibujada, escrita o importada. | — |
-| Formularios PDF | Pendiente | Rellenar y crear campos de formulario. | — |
-| Censurar permanentemente | Pendiente | Eliminar contenido reconstruyendo el documento. | — |
+| **Formularios PDF** | Terminada | Inspecciona, rellena, crea y aplana campos de formulario. | `free-pdf-formulario.pdf` |
+| **Censurar permanentemente** | Terminada | Elimina contenido de verdad reconstruyendo el documento como imágenes. | `free-pdf-censurado.pdf` |
+| **Editar y anotar** | Terminada | Añade texto, formas y resaltados **encima** de las páginas. | `free-pdf-editado.pdf` |
+| **Firma visual** | Terminada | Coloca una firma dibujada a mano o escrita en cursiva. | `free-pdf-firmado.pdf` |
 
 El cifrado usa [qpdf](https://github.com/qpdf/qpdf) 12.2.0 compilado a WebAssembly, ejecutándose en un Web Worker dentro de tu navegador. Los detalles están en [docs/CIFRADO.md](docs/CIFRADO.md).
 
-Las demás fases previstas están documentadas en [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md), con el estado real de cada herramienta.
+**Sobre la censura, que conviene no malinterpretar:** no dibuja una caja negra encima. Rasteriza todas las páginas, pinta las zonas sobre los píxeles y construye un documento nuevo, sin los flujos de contenido originales. Después vuelve a abrir el resultado y comprueba que no queda texto extraíble; si la comprobación falla, no se descarga nada. El precio es real: el texto deja de poder seleccionarse y la estructura de accesibilidad se pierde. Está explicado en [docs/CENSURA.md](docs/CENSURA.md), incluida la diferencia con «Recortar PDF», que **no** sirve para ocultar información.
+
+**Dos aclaraciones que no se pueden quitar,** porque el nombre de las herramientas se presta a entender de más:
+
+- **«Editar y anotar» no modifica el texto original del PDF.** Añade una capa encima, y el documento original queda intacto por debajo: su texto sigue siendo texto y su accesibilidad no se pierde. Corregir una palabra de un párrafo existente exigiría rehacer tipografía, interletraje y reflujo, y no se hace.
+- **«Firma visual» no es una firma digital.** Es un dibujo. No usa certificados, no prueba la identidad de nadie, no detecta modificaciones posteriores y no tiene validez de firma electrónica cualificada. Vale lo que vale una firma en un papel escaneado. La firma con certificado exigiría decidir dónde viven las claves privadas y queda **fuera del alcance** del proyecto.
+
+Los detalles de las dos están en [docs/EDICION.md](docs/EDICION.md).
+
+### Fase 4 — Diagnóstico y conversión
+
+**Cerrada.** Cinco herramientas están implementadas y verificadas. PDF/A no se
+publica porque no existe una ruta verificable que convierta y valide localmente
+en el navegador; el bloqueo técnico está documentado. Esta es la última fase
+del proyecto.
+
+| Herramienta | Estado | Qué hace | Resultado |
+| ----------- | ------ | -------- | --------- |
+| **Reparar PDF** | Terminada | Comprueba el estado de un documento y lo reescribe con una estructura limpia. | `free-pdf-reparado.pdf` |
+| **Comprimir PDF** | Terminada | Recomprime las imágenes y reorganiza la estructura. El texto no se toca. | `free-pdf-comprimido.pdf` |
+| **PDF a Markdown** | Terminada | Extrae la capa de texto y reconstruye de forma aproximada encabezados, párrafos, listas, enlaces y tablas sencillas. | `free-pdf.md` |
+| **Comparar PDF** | Terminada | Señala las diferencias de texto, apariencia, medidas y metadatos. | `free-pdf-informe-comparacion.html` |
+| **OCR local** | Terminada | Reconoce texto impreso en imágenes y PDF escaneados, en español, inglés o ambos. | `free-pdf-ocr.txt` o `free-pdf-ocr.md` |
+| PDF/A | **Bloqueada; no disponible** | No se publica sin conversión y validación PDF/A reales en el navegador. | — |
+
+**Sobre la reparación, siendo exactos:** qpdf lee el documento y lo vuelve a escribir entero. Recupera un archivo con bytes de basura antes de la cabecera —la corrupción más habitual en la práctica—, pero **no reconstruye una tabla de referencias destruida**: en ese caso termina sin escribir nada y se te dice que no hay nada que recuperar, en lugar de entregarte un archivo vacío. Tampoco inventa las páginas que falten. Todo esto está **medido contra el motor real**, no supuesto, y la tabla de lo comprobado está en [docs/REPARACION.md](docs/REPARACION.md).
+
+**Sobre la compresión, siendo exactos:** hace **dos cosas**. Recomprime las imágenes JPEG —lo que de verdad reduce un PDF de fotografías, y sí pierde calidad— y reorganiza la estructura del archivo con qpdf, que no pierde nada. **No rasteriza el documento**: el texto sigue siendo texto seleccionable y las tipografías siguen incrustadas, y hay una prueba que lo comprueba. Tres perfiles, borrado opcional de metadatos, progreso por imagen y cancelación. **Si no consigue reducir el archivo, no descarga nada** y te dice el porcentaje real de todos modos. Tu original nunca se modifica. Los detalles y las cifras medidas están en [docs/COMPRESION.md](docs/COMPRESION.md).
+
+El estado completo de las cuatro fases está documentado en [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md).
+
+**Sobre Markdown, siendo exactos:** el PDF no contiene párrafos ni tablas semánticas, sino fragmentos dibujados en posiciones. La estructura se deduce con tamaños de fuente y coordenadas, por lo que las columnas y las tablas complejas pueden quedar desordenadas. El resultado se puede revisar y editar antes de copiarlo o descargarlo. Si el documento no tiene capa de texto, se detecta y se remite a OCR. Los detalles están en [docs/MARKDOWN.md](docs/MARKDOWN.md).
+
+**Sobre OCR, siendo exactos:** Tesseract.js 7 trabaja en un Web Worker con los modelos locales de español e inglés. Las imágenes y páginas se procesan de una en una, con progreso, cancelación y vista editable. El reconocimiento puede cometer errores y consume tiempo y memoria; no se ofrece PDF buscable porque la alineación de una capa de texto no se puede verificar todavía. Auditoría, tamaños y límites: [docs/OCR.md](docs/OCR.md).
+
+**Sobre PDF/A, siendo exactos:** se encontraron puertos de Ghostscript a
+WebAssembly capaces de intentar PDF/A-1/2/3 nivel b, pero ninguno incorpora un
+validador PDF/A real. veraPDF sí valida e informa todos los perfiles, pero su
+distribución oficial necesita Java y no se puede ejecutar en GitHub Pages.
+Combinar una conversión sin validador con `qpdf --check` tampoco demuestra
+conformidad con ISO 19005. No hay tarjeta ni descarga que finja lo contrario.
+Versiones, licencias, tamaños y motivos de descarte:
+[docs/PDFA.md](docs/PDFA.md).
 
 ## Seguridad
 
@@ -149,6 +207,8 @@ Estas peticiones:
 - **no son una subida de archivos**: tu documento nunca sale del navegador;
 - se realizan **solo cuando hacen falta**, es decir, cuando el documento concreto que has abierto usa ese recurso.
 
+Los recursos OCR siguen el mismo principio. El trabajador, los tres núcleos LSTM posibles y los modelos comprimidos `spa` y `eng` se publican bajo `/free-pdf/ocr/`. Suman 16,08 MiB y solo se solicitan al usar OCR. La compilación elimina las reservas de CDN de Tesseract y la herramienta desactiva su caché de IndexedDB.
+
 Se excluye a propósito `quickjs-eval`, casi medio megabyte destinado a ejecutar el JavaScript incrustado en algunos PDF. Esa capacidad no se activa nunca, así que no se distribuye.
 
 El flujo de integración continua comprueba en cada compilación que las cuatro carpetas existen y que ningún archivo del sitio referencia una CDN conocida.
@@ -163,6 +223,7 @@ El flujo de integración continua comprueba en cada compilación que las cuatro 
 - [pdf-lib](https://pdf-lib.js.org/) para crear y modificar documentos
 - [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`) para dibujar páginas y miniaturas
 - [fflate](https://github.com/101arrowz/fflate) para generar los ZIP
+- [Tesseract.js](https://github.com/naptha/tesseract.js) 7 para OCR local en español e inglés
 - [Testing Library](https://testing-library.com/) y [jsdom](https://github.com/jsdom/jsdom) para las pruebas de interfaz
 - CSS propio, sin frameworks, e iconos SVG propios
 - [pnpm](https://pnpm.io/) como gestor de paquetes
@@ -217,6 +278,7 @@ Donde el entorno de pruebas no puede hacer el trabajo real, la pieza que lo nece
 - **PDF a imágenes** recibe un *adaptador de dibujado*. En el navegador lo implementa PDF.js con un `canvas`; en las pruebas se pasa uno que devuelve bytes conocidos. Así se comprueban la selección, los nombres, el orden, el progreso, la cancelación y el contenido del ZIP sin dar por hecho que PDF.js ha dibujado nada.
 - **Imágenes a PDF** y **Escanear a PDF** reciben un *adaptador de imágenes* con la misma idea, que además registra qué giro, qué recorte y qué filtros se le pidieron para cada imagen.
 - La lógica de la **cámara** —traducir los errores, elegir la cámara trasera y detener las pistas— son funciones independientes que se comprueban con flujos simulados. **No se necesita una cámara física.**
+- **OCR local** sí tiene una prueba integral adicional: crea un PDF escaneado, PDF.js lo representa en un lienzo nativo de pruebas y Tesseract reconoce los píxeles reales. Ese lienzo es solo una dependencia de desarrollo y no entra en la aplicación.
 
 ## Compilación
 
@@ -355,13 +417,13 @@ Una página PDF puede llevar una rotación propia que el visor aplica al mostrar
 
 - **El recorte no elimina el contenido oculto.** Se ajusta la caja de recorte —el `CropBox` del formato PDF—, que es la que los visores usan para decidir qué se muestra. La caja de medios se deja intacta, así que **el contenido que queda fuera sigue estando dentro del archivo**: no se ve, pero alguien podría recuperarlo ampliando de nuevo la caja o leyendo el documento con herramientas de bajo nivel.
 
-  Esta herramienta sirve para ajustar encuadres y márgenes, y **no** para ocultar información confidencial. Eliminar contenido de verdad corresponderá a la herramienta de censura permanente, prevista para la fase 3.
+  Esta herramienta sirve para ajustar encuadres y márgenes, y **no** para ocultar información confidencial. Para eliminar contenido de verdad está disponible la herramienta «Censurar permanentemente».
 - **Recorte visual.** El rectángulo de recorte se ajusta con campos numéricos, no arrastrando. Es deliberado: unos controles numéricos funcionan con el teclado y con lector de pantalla, y no exigen añadir ninguna dependencia.
 - **Recortes sucesivos.** Un recorte nuevo se mide sobre el área ya visible, no sobre la página completa.
 
 ### Escanear a PDF
 
-- **No hay reconocimiento de texto.** La herramienta crea páginas a partir de fotografías: el resultado es un documento con imágenes, **no un texto que se pueda buscar o copiar**. No hay OCR en esta fase; está previsto para la fase 4.
+- **No añade reconocimiento de texto al PDF creado.** La herramienta crea páginas a partir de fotografías: el resultado es un documento con imágenes, **no un texto que se pueda buscar o copiar**. Para extraer el texto se puede usar después «OCR local»; no se ofrece un PDF buscable porque su capa de texto alineada no está verificada.
 - **No hay detección automática de bordes.** El recorte de cada captura es el que se indique a mano, con campos numéricos en porcentaje.
 - **No hay corrección de perspectiva.** Una fotografía tomada en ángulo saldrá en ángulo.
 - **Permiso de cámara.** Es siempre explícito y se puede denegar; en ese caso se explica y se ofrece cargar fotografías desde el dispositivo.
