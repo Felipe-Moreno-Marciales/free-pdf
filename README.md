@@ -8,18 +8,21 @@ Free PDF no tiene servidor propio, no necesita registro y no envía tus document
 
 La privacidad no es una promesa: es una consecuencia de cómo está construida la aplicación.
 
-- Los documentos se leen en memoria con las API del navegador (`File` y `ArrayBuffer`) y se procesan con [pdf-lib](https://pdf-lib.js.org/) y [PDF.js](https://mozilla.github.io/pdf.js/).
-- **Ningún archivo se sube a un servidor.** No hay backend ni ninguna petición de red que transporte tus documentos. El código no contiene `fetch`, `XMLHttpRequest` ni `WebSocket`.
-- No se guarda nada en `localStorage`, `sessionStorage`, `IndexedDB` ni cookies: al recargar la página, todo desaparece.
-- El worker de PDF.js se empaqueta con el proyecto, no se descarga de ninguna CDN. Además se desactivan sus descargas auxiliares de tipografías, tablas de caracteres y módulos WebAssembly, para que no realice ninguna petición.
+- Los documentos y las imágenes se leen en memoria con las API del navegador (`File`, `Blob`, `ArrayBuffer`, `createImageBitmap` y `canvas`) y se procesan con [pdf-lib](https://pdf-lib.js.org/) y [PDF.js](https://mozilla.github.io/pdf.js/).
+- **Ningún archivo se sube a un servidor.** No hay backend ni ninguna petición de red que transporte tus documentos. El código no contiene `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` ni `sendBeacon`.
+- No se guarda nada en `localStorage`, `sessionStorage`, `IndexedDB` ni cookies: al recargar la página, todo desaparece. Eso incluye las fotografías tomadas con la cámara.
+- Todos los recursos que PDF.js necesita —el worker, las tablas de caracteres, las tipografías estándar, los módulos WebAssembly y los perfiles de color— se distribuyen **dentro del propio sitio**. No se usa ninguna red de distribución de contenidos (CDN) ni ningún servicio de terceros. Ver [Recursos locales de PDF.js](#recursos-locales-de-pdfjs).
+- La cámara solo se enciende después de que la pulses tú, y sus fotografías no salen del dispositivo.
 - No hay telemetría, analítica, publicidad ni rastreo de ningún tipo.
 - Al ser software libre, puedes revisar el código y comprobarlo por ti mismo.
 
-Las únicas descargas que realiza la aplicación son sus propios archivos estáticos, y solo los que hacen falta: los motores PDF se traen la primera vez que abres una herramienta que los necesita.
+Las únicas descargas que realiza la aplicación son sus propios archivos estáticos, y solo los que hacen falta: los motores PDF y los recursos auxiliares se traen la primera vez que abres una herramienta que los necesita.
 
 ## Herramientas disponibles
 
-**Fase 1 — Organización: completa.** Las seis herramientas están implementadas, probadas y funcionan por completo en el navegador.
+### Fase 1 — Organización
+
+**Completa.** Las seis herramientas están implementadas, probadas y funcionan por completo en el navegador.
 
 | Herramienta | Qué hace | Resultado |
 | ----------- | -------- | --------- |
@@ -30,17 +33,125 @@ Las únicas descargas que realiza la aplicación son sus propios archivos estát
 | **Organizar páginas** | Cambia el orden de las páginas con botones o arrastrando. | `free-pdf-organizado.pdf` |
 | **Rotar páginas** | Gira las páginas elegidas en cuartos de vuelta o media vuelta. | `free-pdf-rotado.pdf` |
 
-Las herramientas que trabajan con páginas muestran miniaturas reales de cada página, dibujadas con PDF.js y cargadas de forma diferida a medida que se acercan a la pantalla.
+### Fase 2 — Creación y personalización
 
-Las demás fases previstas están documentadas en [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md). Ninguna de sus herramientas está implementada todavía.
+**Completa.** Las seis herramientas están implementadas y probadas.
+
+| Herramienta | Qué hace | Resultado |
+| ----------- | -------- | --------- |
+| **Imágenes a PDF** | Convierte varias imágenes en un PDF, con una página por imagen, orden y giro configurables. | `free-pdf-imagenes.pdf` |
+| **PDF a imágenes** | Guarda las páginas elegidas como PNG o JPEG, con tres resoluciones. | Una imagen suelta, o `free-pdf-imagenes.zip` |
+| **Numerar páginas** | Añade números de página con texto, posición y apariencia configurables. | `free-pdf-numerado.pdf` |
+| **Marca de agua** | Superpone un texto o una imagen, una sola vez o en mosaico. | `free-pdf-marca-de-agua.pdf` |
+| **Recortar PDF** | Ajusta el área visible de las páginas indicando cuánto quitar por cada lado. | `free-pdf-recortado.pdf` |
+| **Escanear a PDF** | Crea un PDF con la cámara o con fotografías, con recorte y filtros. | `free-pdf-escaneado.pdf` |
+
+Las herramientas que trabajan con páginas muestran miniaturas reales, dibujadas con PDF.js y cargadas de forma diferida a medida que se acercan a la pantalla.
+
+### Fase 3 — Seguridad y edición
+
+**En curso.** Las dos herramientas de contraseña están implementadas y verificadas; las cuatro restantes todavía no.
+
+| Herramienta | Estado | Qué hace | Resultado |
+| ----------- | ------ | -------- | --------- |
+| **Proteger PDF** | Terminada | Cifra el documento con AES de 256 bits y graba los permisos elegidos. | `free-pdf-protegido.pdf` |
+| **Desbloquear PDF** | Terminada | Quita la contraseña de un documento protegido, con esa contraseña. | `free-pdf-desbloqueado.pdf` |
+| Editar y anotar | Pendiente | Añadir texto, dibujo, formas e imágenes sobre las páginas. | — |
+| Firma visual | Pendiente | Colocar una firma dibujada, escrita o importada. | — |
+| Formularios PDF | Pendiente | Rellenar y crear campos de formulario. | — |
+| Censurar permanentemente | Pendiente | Eliminar contenido reconstruyendo el documento. | — |
+
+El cifrado usa [qpdf](https://github.com/qpdf/qpdf) 12.2.0 compilado a WebAssembly, ejecutándose en un Web Worker dentro de tu navegador. Los detalles están en [docs/CIFRADO.md](docs/CIFRADO.md).
+
+Las demás fases previstas están documentadas en [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md), con el estado real de cada herramienta.
+
+## Seguridad
+
+Hay dos documentos dedicados:
+
+- **[docs/SEGURIDAD.md](docs/SEGURIDAD.md)**: modelo de amenazas, de qué protege la aplicación y de qué no, limpieza de recursos y cómo informar de una vulnerabilidad.
+- **[docs/CIFRADO.md](docs/CIFRADO.md)**: cómo funciona el cifrado, por qué no se usa pdf-lib para ello, la auditoría de qpdf y cómo se tratan las contraseñas.
+
+Lo esencial:
+
+- El documento se cifra con **AES de 256 bits**. No se ofrece RC4 ni claves cortas, y no se usa `--allow-insecure`.
+- **Las contraseñas no se guardan.** Viven en memoria mientras se usan y se borran en cuanto la operación termina. No aparecen en registros, ni en mensajes de error, ni en nombres de archivo.
+- Al descifrar, la contraseña viaja en un archivo del sistema virtual y **no en los argumentos**. Al cifrar sí va en los argumentos, porque qpdf no admite otra forma; ocurre dentro del Web Worker y la salida del motor se intercepta y se depura.
+- **Los permisos PDF no son una barrera técnica**: dependen de que el lector decida respetarlos. Lo único que protege de verdad es la contraseña de apertura.
+- Nada se entrega sin verificarlo: se comprueba que el documento quedó cifrado, que la contraseña lo abre y que conserva sus páginas. Si la comprobación falla, no se descarga nada.
+- **El recorte no elimina el contenido oculto.** Sirve para ajustar encuadres, no para ocultar información confidencial.
+- El Web Worker de qpdf se **destruye** al salir de la herramienta, y su sistema de archivos virtual se limpia en cada operación.
 
 ### Detalles comunes
 
-- Solo se aceptan archivos PDF: se comprueban la extensión y el tipo MIME cuando el navegador lo informa.
+- Solo se aceptan los formatos indicados: se comprueban la extensión y el tipo MIME cuando el navegador lo informa.
 - Se rechazan los archivos vacíos, los duplicados exactos y los documentos cifrados o dañados, siempre con un aviso que indica el archivo concreto.
 - Los rangos de páginas admiten páginas sueltas y rangos combinados: `1-3, 5, 8-10`. Los espacios se ignoran.
 - No se pueden lanzar dos operaciones a la vez, y los controles incompatibles se deshabilitan mientras se procesa.
 - Cada resultado se descarga automáticamente y queda además un botón visible para repetir la descarga.
+- Las conversiones largas informan del progreso página a página y se pueden cancelar entre páginas.
+
+## Formatos compatibles
+
+### Documentos
+
+- **PDF** sin cifrar, para todas las herramientas que parten de un documento.
+
+### Imágenes de entrada
+
+Se han comprobado cuatro formatos, que son los únicos que se anuncian:
+
+| Formato | Extensiones | Cómo se incrusta en el PDF |
+| ------- | ----------- | -------------------------- |
+| JPEG | `.jpg`, `.jpeg` | Directamente, sin volver a comprimir, si no se le aplica giro, recorte ni filtro. |
+| PNG | `.png` | Directamente, conservando la transparencia, en las mismas condiciones. |
+| WebP | `.webp` | Se descodifica con el navegador, se dibuja en un `canvas` y se convierte **localmente** a PNG. |
+
+Cualquier otro formato se rechaza con un aviso. No se anuncia compatibilidad con formatos que no se hayan probado.
+
+### Imágenes de salida
+
+- **PNG**: sin pérdidas, mejor para texto y líneas.
+- **JPEG**: archivos más pequeños, con calidad configurable entre el 30 % y el 100 %.
+
+## Uso de la cámara
+
+La herramienta **Escanear a PDF** puede usar la cámara del dispositivo. Funciona así:
+
+- La cámara **no se enciende al abrir la herramienta**. Hay que pulsar «Encender la cámara»; solo entonces se pide el permiso al navegador.
+- Se prefiere la cámara trasera, que es la útil para fotografiar un documento. Si hay varias, se puede elegir cuál usar.
+- Al cambiar de cámara se detiene la anterior. Al apagarla, al empezar de nuevo o al salir de la herramienta se detienen todas sus pistas, que es lo que apaga de verdad la cámara y hace desaparecer el indicador del navegador.
+- Se usan exclusivamente API nativas: `navigator.mediaDevices.getUserMedia`, `MediaStream`, un elemento `<video>` y un `canvas`. **No interviene ningún servicio de cámara externo.**
+- Nunca se pide el micrófono.
+- Las fotografías viven solo en memoria: al recargar la página desaparecen.
+
+Si la cámara no está disponible se explica el motivo con un mensaje concreto —permiso denegado, sin cámara, ocupada por otra aplicación o contexto no seguro— y siempre queda la alternativa de cargar fotografías desde el dispositivo.
+
+> **La cámara exige un contexto seguro.** Los navegadores solo permiten `getUserMedia` en páginas servidas por HTTPS o en `localhost`. GitHub Pages sirve por HTTPS, así que la versión publicada funciona.
+
+## Recursos locales de PDF.js
+
+PDF.js necesita varios archivos auxiliares para representar bien los documentos complejos. Por omisión los busca en una CDN, lo que está descartado en este proyecto. En su lugar, el complemento de Vite [`compilacion/recursosPdfJs.ts`](compilacion/recursosPdfJs.ts) los toma del paquete `pdfjs-dist` instalado y los publica bajo `<base>pdfjs/`, es decir, `/free-pdf/pdfjs/` en la versión publicada.
+
+| Recurso | Para qué sirve | Archivos | Tamaño |
+| ------- | -------------- | -------- | ------ |
+| `pdfjs/cmaps/` | Tablas de caracteres de los alfabetos no latinos (chino, japonés, coreano…). | 169 | 1,11 MiB |
+| `pdfjs/standard_fonts/` | Las tipografías estándar del formato PDF, para los documentos que no las incrustan. | 16 | 0,74 MiB |
+| `pdfjs/wasm/` | Descodificadores de JBIG2 y JPEG 2000 y gestión de color, con sus alternativas sin WebAssembly. | 11 | 1,01 MiB |
+| `pdfjs/iccs/` | Perfil de color predeterminado. | 2 | 15 KiB |
+
+El worker de PDF.js se empaqueta como un recurso más del proyecto, con el resto de los archivos de `assets/`.
+
+Estas peticiones:
+
+- **van al mismo origen** que la aplicación y respetan la ruta base `/free-pdf/`;
+- **no contienen ningún dato tuyo**: solo traen tablas, tipografías y descodificadores;
+- **no son una subida de archivos**: tu documento nunca sale del navegador;
+- se realizan **solo cuando hacen falta**, es decir, cuando el documento concreto que has abierto usa ese recurso.
+
+Se excluye a propósito `quickjs-eval`, casi medio megabyte destinado a ejecutar el JavaScript incrustado en algunos PDF. Esa capacidad no se activa nunca, así que no se distribuye.
+
+El flujo de integración continua comprueba en cada compilación que las cuatro carpetas existen y que ningún archivo del sitio referencia una CDN conocida.
 
 ## Tecnologías
 
@@ -50,10 +161,13 @@ Las demás fases previstas están documentadas en [docs/HOJA_DE_RUTA.md](docs/HO
 - [Oxlint](https://oxc.rs/) para el análisis estático
 - [Vitest](https://vitest.dev/) para las pruebas automatizadas
 - [pdf-lib](https://pdf-lib.js.org/) para crear y modificar documentos
-- [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`) para dibujar las miniaturas
+- [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist`) para dibujar páginas y miniaturas
 - [fflate](https://github.com/101arrowz/fflate) para generar los ZIP
+- [Testing Library](https://testing-library.com/) y [jsdom](https://github.com/jsdom/jsdom) para las pruebas de interfaz
 - CSS propio, sin frameworks, e iconos SVG propios
 - [pnpm](https://pnpm.io/) como gestor de paquetes
+
+El tratamiento de imágenes —descodificar, girar, recortar, filtrar y convertir— se hace con el `canvas` del navegador. **No se usa ninguna biblioteca de edición de imágenes.**
 
 ## Requisitos locales
 
@@ -76,7 +190,9 @@ pnpm install
 pnpm dev
 ```
 
-Vite abre un servidor de desarrollo con recarga en caliente. La ruta base es `/free-pdf/`, la misma que en producción.
+Vite abre un servidor de desarrollo con recarga en caliente. La ruta base es `/free-pdf/`, la misma que en producción, y los recursos de PDF.js se sirven desde `node_modules` mediante el complemento propio, así que el comportamiento coincide con el de la versión publicada.
+
+> La cámara no funcionará en `http://` salvo en `localhost`. Si accedes al servidor de desarrollo desde otro dispositivo de la red, «Escanear a PDF» solo podrá cargar fotografías desde archivos.
 
 ## Pruebas
 
@@ -85,9 +201,22 @@ pnpm pruebas          # ejecuta las pruebas una vez
 pnpm pruebas:vigilar  # las repite al guardar cambios
 ```
 
-Las pruebas viven en [src/pruebas/](src/pruebas/) y cubren la lógica pura y el procesamiento con pdf-lib: validación de archivos, interpretación de rangos y las seis operaciones sobre documentos.
+Las pruebas viven en [src/pruebas/](src/pruebas/) y se reparten en dos proyectos con entornos distintos:
 
-Los documentos PDF de prueba se generan con pdf-lib dentro de las propias pruebas, así que el repositorio no guarda archivos binarios. A cada página se le da un ancho distinto y creciente, que funciona como etiqueta: al leer los anchos del documento resultante se comprueba de qué páginas originales proviene y en qué orden.
+- **`logica`** (archivos `.prueba.ts`, entorno Node): lógica pura y procesamiento con pdf-lib. Cubre la validación de archivos, los rangos de páginas, la geometría de las páginas, los filtros de imagen, los recortes, la conversión de unidades, la colocación de contenido en páginas rotadas, los nombres de archivo, la creación de ZIP, la cancelación y las doce operaciones sobre documentos.
+- **`interfaz`** (archivos `.prueba.tsx`, entorno `jsdom`): componentes de React. Cubre la apertura de una herramienta desde el catálogo, la navegación por hash, los mensajes ante un archivo inválido, el cambio de las opciones principales, el restablecimiento y la navegación con los controles accesibles.
+
+Los materiales de prueba se generan en el momento, así que el repositorio no guarda archivos binarios:
+
+- Los **PDF** se crean con pdf-lib. A cada página se le da un ancho distinto y creciente, que funciona como etiqueta: al leer los anchos del documento resultante se comprueba de qué páginas originales proviene y en qué orden.
+- Los **PNG** se construyen byte a byte, con su firma, su cabecera, sus píxeles comprimidos con `zlib` y sus sumas de comprobación CRC-32. Son válidos y pdf-lib los descodifica de verdad.
+- Los **JPEG** llevan una estructura de marcadores válida pero no datos de imagen reales, que es exactamente lo que pdf-lib inspecciona para incrustarlos. Sirven para comprobar la incrustación y la geometría, no el aspecto visual.
+
+Donde el entorno de pruebas no puede hacer el trabajo real, la pieza que lo necesita se recibe desde fuera en lugar de simularse por dentro:
+
+- **PDF a imágenes** recibe un *adaptador de dibujado*. En el navegador lo implementa PDF.js con un `canvas`; en las pruebas se pasa uno que devuelve bytes conocidos. Así se comprueban la selección, los nombres, el orden, el progreso, la cancelación y el contenido del ZIP sin dar por hecho que PDF.js ha dibujado nada.
+- **Imágenes a PDF** y **Escanear a PDF** reciben un *adaptador de imágenes* con la misma idea, que además registra qué giro, qué recorte y qué filtros se le pidieron para cada imagen.
+- La lógica de la **cámara** —traducir los errores, elegir la cámara trasera y detener las pistas— son funciones independientes que se comprueban con flujos simulados. **No se necesita una cámara física.**
 
 ## Compilación
 
@@ -96,6 +225,8 @@ pnpm build    # comprueba los tipos y genera dist/
 pnpm preview  # sirve localmente la versión ya compilada
 ```
 
+La compilación copia además los recursos auxiliares de PDF.js en `dist/pdfjs/` y muestra en la consola cuántos archivos y cuántos megabytes ocupa cada carpeta.
+
 ## Despliegue
 
 El flujo de trabajo [.github/workflows/desplegar.yml](.github/workflows/desplegar.yml) valida y publica el proyecto:
@@ -103,6 +234,7 @@ El flujo de trabajo [.github/workflows/desplegar.yml](.github/workflows/desplega
 - Se ejecuta en cada `push` a `development` y a `main`, en los Pull Requests hacia `main` y de forma manual con `workflow_dispatch`.
 - Cada validación ejecuta, en este orden: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm pruebas` y `pnpm build`.
 - Comprueba que la compilación use la ruta base `/free-pdf/`, obligatoria para GitHub Pages.
+- Comprueba que los recursos locales de PDF.js estén presentes y que ningún archivo referencie una CDN conocida.
 - Publica la carpeta `dist` en GitHub Pages **únicamente** en los `push` a `main`. La rama `development` nunca despliega.
 
 Para que el despliegue funcione hay que abrir **Settings → Pages** en el repositorio y elegir **GitHub Actions** como origen (*Source*). No se necesita ningún secreto ni token adicional.
@@ -117,6 +249,7 @@ Para que el despliegue funcione hay que abrir **Settings → Pages** en el repos
 El código fuente está escrito en español, salvo los nombres impuestos por las tecnologías utilizadas.
 
 ```
+compilacion/            Complemento de Vite que publica los recursos de PDF.js
 src/
 ├── componentes/        Componentes visuales reutilizables
 ├── funcionalidades/    Una carpeta por herramienta
@@ -125,45 +258,116 @@ src/
 │   ├── extraer-paginas/
 │   ├── eliminar-paginas/
 │   ├── organizar-paginas/
-│   └── rotar-paginas/
+│   ├── rotar-paginas/
+│   ├── imagenes-a-pdf/
+│   ├── pdf-a-imagenes/
+│   ├── numerar-paginas/
+│   ├── marca-de-agua/
+│   ├── recortar-pdf/
+│   └── escanear-a-pdf/
 ├── ganchos/            Estado compartido (hooks de React)
-├── herramientas/       Catálogo de herramientas y sus tipos
-├── pdf/                Lógica PDF: cargar, guardar, miniaturas, validar
+├── herramientas/       Catálogo de herramientas, categorías y tipos
+├── imagenes/           Lógica de imágenes: validar, descodificar, dibujar, convertir
+├── pdf/                Lógica PDF: cargar, guardar, colocar, recursos, miniaturas
 ├── pruebas/            Pruebas automatizadas
-└── utilidades/         Rangos, tamaños, descargas, ZIP, errores
+└── utilidades/         Rangos, unidades, tamaños, descargas, ZIP, listas, errores
 ```
 
 La separación es deliberada:
 
-- **`pdf/`** no sabe nada de React. Concentra la carga con pdf-lib, el guardado, el dibujado de miniaturas con PDF.js, la liberación de recursos y la validación.
-- **`utilidades/`** son funciones puras: interpretación de rangos, formato de tamaños, nombres de archivo, ZIP y tratamiento de errores.
-- **`ganchos/`** contiene el estado compartido: `useDocumentoPdf` carga un documento y libera el anterior, `useSeleccionPaginas` gestiona la selección, `useProcesoPdf` ejecuta y descarga, y `useHerramientaPaginas` reúne los tres.
+- **`pdf/`** no sabe nada de React. Concentra la carga con pdf-lib, el guardado, el dibujado con PDF.js, las direcciones de sus recursos locales, la colocación de contenido sobre páginas rotadas, la interpretación de colores, la cancelación y la liberación de recursos.
+- **`imagenes/`** tampoco sabe nada de React. Valida, descodifica con las API del navegador, calcula la geometría de la página, recorta, aplica filtros, convierte a PNG o JPEG y libera la memoria.
+- **`utilidades/`** son funciones puras: rangos de páginas, conversión de unidades, formato de tamaños, nombres de archivo, ZIP, operaciones sobre listas y tratamiento de errores.
+- **`ganchos/`** contiene el estado compartido: `useDocumentoPdf` carga un documento y libera el anterior, `useSeleccionPaginas` y `useSeleccionImagenes` gestionan las selecciones, `useProcesoPdf` ejecuta y descarga, `useProcesoCancelable` añade progreso y cancelación, y `useHerramientaPaginas` reúne varios.
 - **`funcionalidades/`** tiene, por herramienta, su lógica de negocio (un módulo sin React y probado), su gancho de estado y su interfaz.
 - **`componentes/`** son piezas visuales sin lógica de negocio, compartidas entre herramientas.
 
-Cada herramienta se carga de forma diferida, así que la página inicial no descarga ni pdf-lib ni PDF.js. La navegación usa el hash de la dirección (`#/dividir`), lo que permite compartir enlaces directos y usar los botones de atrás y adelante sin necesitar un enrutador ni configurar redirecciones en el servidor.
+Cada herramienta se carga de forma diferida, así que la página inicial no descarga ni pdf-lib, ni PDF.js, ni la lógica de la cámara. La navegación usa el hash de la dirección (`#/marca-de-agua`), lo que permite compartir enlaces directos y usar los botones de atrás y adelante sin necesitar un enrutador ni configurar redirecciones en el servidor.
+
+### Geometría y páginas rotadas
+
+Una página PDF puede llevar una rotación propia que el visor aplica al mostrarla, mientras que sus coordenadas internas no cambian. Numerar, poner una marca de agua y recortar razonan sobre **lo que se ve** y traducen después a las coordenadas del documento, en [`src/pdf/posicionarEnPagina.ts`](src/pdf/posicionarEnPagina.ts). Por eso «abajo a la derecha» es siempre abajo a la derecha para quien mira el documento, y «recortar 10 mm por arriba» quita siempre el borde de arriba, incluso en las páginas apaisadas.
+
+### Liberación de recursos
+
+- Los documentos de PDF.js y su worker se liberan al cambiar de documento y al salir de la herramienta.
+- Los `canvas` se vacían al desmontarse, porque una miniatura grande puede ocupar varios megabytes.
+- Las imágenes descodificadas se cierran en cuanto se han dibujado.
+- Las URL temporales se revocan siempre, también después de cada descarga.
+- Los dibujados pendientes se cancelan con `AbortController`.
+- Las pistas de la cámara se detienen al cambiar de cámara, al apagarla, al restablecer y al desmontar el componente.
+- Las imágenes y las páginas se procesan **de una en una**, para no mantener varias descodificaciones grandes en memoria al mismo tiempo.
 
 ## Accesibilidad
 
 - HTML semántico y un enlace para saltar al contenido principal.
-- Todos los botones tienen un nombre accesible que incluye la página o el archivo al que afectan.
-- La zona de arrastrar y soltar se puede usar con el teclado.
-- Las miniaturas son botones con `aria-pressed`, acompañados de texto que indica el número de página, su posición actual, su rotación y si está marcada. El `canvas` se marca como decorativo.
-- El arrastre para reordenar es un añadido: siempre hay botones equivalentes y todo se puede manejar con el teclado.
-- Los mensajes de estado y de error se anuncian con `aria-live`.
-- Los estados no se comunican solo con el color: siempre hay texto y, además, un icono o una marca.
+- Todos los botones tienen un nombre accesible que incluye la página, el archivo o la imagen a la que afectan.
+- Las zonas de arrastrar y soltar se pueden usar con el teclado, mediante un `input` de archivos real.
+- Las miniaturas de página son botones con `aria-pressed`, acompañados de texto que indica el número de página, su posición actual, su rotación y si está marcada. El `canvas` se marca como decorativo y toda su información se facilita como texto.
+- El arrastre para reordenar es siempre un añadido: hay botones equivalentes —anterior, siguiente, al principio y al final— y todo se puede manejar con el teclado.
+- Los grupos de opciones son campos `radio` nativos dentro de un `fieldset`, así que el navegador aporta el agrupamiento y la navegación con las flechas.
+- Los controles deslizantes muestran su valor en texto y lo declaran en `aria-valuetext`.
+- El selector de posición es una cuadrícula de campos `radio` con el nombre completo de cada posición, y además indica en texto la que está elegida.
+- El selector de color ofrece la paleta del navegador y un campo de texto, para que no dependa del ratón.
+- El vídeo de la cámara lleva una descripción, y su estado se anuncia en una región activa.
+- Los mensajes de estado, de progreso y de error se anuncian con `aria-live`; el progreso se facilita también como texto, no solo como barra.
+- La herramienta abierta se marca con `aria-current` en el catálogo.
+- Los estados no se comunican solo con el color: siempre hay texto y, además, un icono o una marca. Las categorías del catálogo se distinguen por su encabezado, no solo por su franja de color.
 - Se respeta `prefers-reduced-motion` y se admiten los temas claro y oscuro.
 - El diseño está pensado primero para móvil y funciona también en escritorio.
 
 ## Limitaciones conocidas
 
+### Generales
+
 - **Documentos cifrados.** Se detectan y se avisa, pero no se pueden procesar. No se pide la contraseña.
-- **Memoria.** Todo ocurre en memoria. Un documento de cientos de megabytes, o muchos documentos grandes a la vez, pueden agotarla; el fallo se captura y se muestra como aviso sin bloquear la aplicación.
+- **Memoria.** Todo ocurre en memoria. Un documento de cientos de megabytes, muchos documentos grandes a la vez o fotografías de muchos megapíxeles pueden agotarla; el fallo se captura y se muestra como aviso sin bloquear la aplicación. Las herramientas avisan cuando la selección es grande.
 - **Miniaturas.** Se dibujan de forma diferida, pero un documento con muchísimas páginas tarda en mostrarlas todas. No hay límite artificial de páginas.
 - **Arrastre táctil.** El reordenado por arrastre usa la API nativa de HTML, que los navegadores móviles no implementan. En pantallas táctiles se usan los botones de movimiento, que cubren la misma funcionalidad.
-- **Imágenes JPEG 2000.** Se desactiva el WebAssembly de PDF.js para garantizar que no realiza peticiones de red, así que las páginas con imágenes en ese formato poco común pueden verse incompletas en la miniatura. El documento generado no se ve afectado: las páginas se copian tal cual.
 - **Metadatos al dividir.** Se copian el título, el autor, el asunto y las palabras clave. El resto de metadatos los regenera pdf-lib.
-- **Sin pruebas de interfaz.** Las pruebas cubren la lógica y el procesamiento. Los componentes de React no tienen pruebas todavía.
+
+### Imágenes a PDF
+
+- **Tamaño «original».** Los píxeles se interpretan a 96 por pulgada, la densidad de referencia de la web. Una fotografía de muchos megapíxeles produce, por tanto, una página muy grande.
+- **Modo «cubrir».** Para rellenar la página sin deformar la imagen hay que descartar parte de ella. El recorte se aplica a la propia imagen, centrado, así que los márgenes se respetan y el documento no guarda píxeles que nunca se van a ver.
+- **Reencodificación.** Un JPEG o un PNG sin giro, recorte ni filtro se incrusta con sus bytes originales. En cuanto se le aplica alguna transformación pasa por un `canvas`, lo que implica volver a comprimirlo.
+- **WebP.** Se convierte a PNG en el navegador. Los navegadores muy antiguos que no descodifican WebP mostrarán un aviso de que la imagen no se pudo leer.
+
+### PDF a imágenes
+
+- **Memoria y tiempo.** Una página A4 a la resolución más alta ocupa más de treinta megabytes mientras se dibuja. Con muchas páginas conviene bajar la resolución o convertir por tandas; la herramienta avisa.
+- **Límite del `canvas`.** Los navegadores limitan el área de un `canvas`. Si una página resulta demasiado grande para la resolución elegida se avisa y se pide bajarla, en lugar de generar una imagen en blanco.
+- **Cancelación.** Se puede cancelar **entre páginas**, no en mitad del dibujado de una.
+
+### Numerar páginas
+
+- **Tipografías.** Se usa Helvetica, una de las catorce tipografías estándar que pdf-lib trae consigo. No se descarga ninguna tipografía. Eso cubre el español completo —tildes, eñes y signos de apertura— pero **no** los alfabetos griego, cirílico o asiático ni los emoticonos: si el texto lleva un carácter no admitido se avisa antes de generar nada.
+- **Marcadores.** Los únicos admitidos son `{pagina}` y `{total}`. Cualquier otro se rechaza indicando cuál.
+- **Regla del total.** La primera página del documento recibe el número inicial y a partir de ahí se cuenta de uno en uno, se numere o no. `{total}` es el número que le corresponde a la última página: con un documento de 10 páginas y el número inicial 5, `{total}` vale 14.
+
+### Marca de agua
+
+- **Tipografías.** La misma limitación que la numeración.
+- **Mosaico.** Se limita el número de copias por página; si la marca es diminuta y la separación nula, se avisa en lugar de generar un documento enorme e inservible.
+- **Vista previa.** Es una aproximación sobre una página A4 vertical: representa la posición, la escala, el giro, el color y la opacidad, pero no el contenido real del documento ni el tamaño concreto de cada página.
+
+### Recortar PDF
+
+- **El recorte no elimina el contenido oculto.** Se ajusta la caja de recorte —el `CropBox` del formato PDF—, que es la que los visores usan para decidir qué se muestra. La caja de medios se deja intacta, así que **el contenido que queda fuera sigue estando dentro del archivo**: no se ve, pero alguien podría recuperarlo ampliando de nuevo la caja o leyendo el documento con herramientas de bajo nivel.
+
+  Esta herramienta sirve para ajustar encuadres y márgenes, y **no** para ocultar información confidencial. Eliminar contenido de verdad corresponderá a la herramienta de censura permanente, prevista para la fase 3.
+- **Recorte visual.** El rectángulo de recorte se ajusta con campos numéricos, no arrastrando. Es deliberado: unos controles numéricos funcionan con el teclado y con lector de pantalla, y no exigen añadir ninguna dependencia.
+- **Recortes sucesivos.** Un recorte nuevo se mide sobre el área ya visible, no sobre la página completa.
+
+### Escanear a PDF
+
+- **No hay reconocimiento de texto.** La herramienta crea páginas a partir de fotografías: el resultado es un documento con imágenes, **no un texto que se pueda buscar o copiar**. No hay OCR en esta fase; está previsto para la fase 4.
+- **No hay detección automática de bordes.** El recorte de cada captura es el que se indique a mano, con campos numéricos en porcentaje.
+- **No hay corrección de perspectiva.** Una fotografía tomada en ángulo saldrá en ángulo.
+- **Permiso de cámara.** Es siempre explícito y se puede denegar; en ese caso se explica y se ofrece cargar fotografías desde el dispositivo.
+- **Disponibilidad de cámaras.** Depende del navegador y del dispositivo. Puede no haber ninguna, puede haber solo una —sin posibilidad de cambiar— y las etiquetas de los dispositivos solo están disponibles después de conceder el permiso.
+- **Contexto seguro.** `getUserMedia` solo funciona por HTTPS o en `localhost`.
+- **Fotografías de alta resolución.** Consumen bastante memoria al descodificarse y al filtrarse. Se procesan de una en una para reducir el riesgo.
 
 ## Cómo contribuir
 
@@ -181,11 +385,13 @@ Cada herramienta se carga de forma diferida, así que la página inicial no desc
    - **Todo el código en español**: carpetas, archivos, componentes, funciones, variables, constantes, tipos, comentarios, mensajes de error, clases CSS y variables CSS. Solo permanece en inglés lo impuesto desde fuera (la API de JavaScript, React, el DOM, HTML, CSS, ARIA, las bibliotecas externas y los nombres de archivo técnicos).
    - **TypeScript estricto y sin `any`.**
    - **Sin frameworks CSS** ni bibliotecas de iconos: CSS propio con variables y SVG propios.
-   - **Sin dependencias innecesarias.** Justifica cualquier dependencia nueva.
+   - **Sin dependencias innecesarias.** Justifica cualquier dependencia nueva y documenta la decisión.
    - **Sin backend, sin peticiones de red para procesar documentos, sin telemetría y sin almacenamiento persistente.**
-   - Los componentes visuales van en `componentes/`, la lógica de negocio en `funcionalidades/<herramienta>/` o en `pdf/`, y las funciones puras en `utilidades/`. No concentres lógica en `Aplicacion.tsx`.
-5. Añade pruebas para toda la lógica nueva. Genera los PDF de prueba con pdf-lib dentro de la propia prueba; no añadas archivos binarios al repositorio.
+   - Los componentes visuales van en `componentes/`, la lógica de negocio en `funcionalidades/<herramienta>/`, `pdf/` o `imagenes/`, y las funciones puras en `utilidades/`. No concentres lógica en `Aplicacion.tsx`.
+   - Cuando algo necesite el navegador —un `canvas`, PDF.js o la cámara—, recíbelo como adaptador para que la lógica siga siendo comprobable.
+5. Añade pruebas para toda la lógica nueva. Genera los materiales de prueba dentro de la propia prueba; no añadas archivos binarios al repositorio.
 6. Cuida la accesibilidad: nombre accesible en cada control, navegación con teclado, foco visible, `aria-live` para los mensajes dinámicos y estados que no dependan solo del color.
+7. No afirmes en la documentación capacidades que no estén realmente implementadas y probadas.
 
 ## Licencia
 
