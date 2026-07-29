@@ -25,14 +25,30 @@ Si una función no se puede hacer en tu navegador, **no se hace**. No se añade 
 La privacidad no es una promesa: es una consecuencia de cómo está construida la aplicación.
 
 - Los documentos y las imágenes se leen en memoria con las API del navegador (`File`, `Blob`, `ArrayBuffer`, `createImageBitmap` y `canvas`) y se procesan con [pdf-lib](https://pdf-lib.js.org/) y [PDF.js](https://mozilla.github.io/pdf.js/).
-- **Ningún archivo se sube a un servidor.** No hay backend ni ninguna petición de red que transporte tus documentos. El código no contiene `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` ni `sendBeacon`.
-- No se guarda nada en `localStorage`, `sessionStorage`, `IndexedDB` ni cookies: al recargar la página, todo desaparece. Eso incluye las fotografías tomadas con la cámara.
+- **Ningún archivo se sube a un servidor.** No hay backend ni ninguna petición de red que transporte tus documentos. El único `fetch` propio pertenece al service worker y solo recupera archivos estáticos de Free PDF desde el mismo origen.
+- Ningún documento, imagen, resultado, contraseña ni preferencia se guarda en `localStorage`, `sessionStorage`, `IndexedDB`, cookies o `Cache Storage`: al recargar la página, esos datos desaparecen. La PWA usa `Cache Storage` exclusivamente para el código y los motores estáticos de la aplicación.
 - Todos los recursos que PDF.js y OCR necesitan —trabajadores, WebAssembly, tablas, tipografías, perfiles de color y modelos de idioma— se distribuyen **dentro del propio sitio**. No se usa ninguna red de distribución de contenidos (CDN) ni ningún servicio de terceros. Ver [Recursos locales de PDF.js](#recursos-locales-de-pdfjs) y [docs/OCR.md](docs/OCR.md).
 - La cámara solo se enciende después de que la pulses tú, y sus fotografías no salen del dispositivo.
 - No hay telemetría, analítica, publicidad ni rastreo de ningún tipo.
 - Al ser software libre, puedes revisar el código y comprobarlo por ti mismo.
 
-Las únicas descargas que realiza la aplicación son sus propios archivos estáticos, y solo los que hacen falta: los motores PDF y los recursos auxiliares se traen la primera vez que abres una herramienta que los necesita.
+Las únicas descargas que realiza la aplicación son sus propios archivos
+estáticos. En producción, el service worker prepara aproximadamente 23 MiB para
+que las 23 herramientas puedan funcionar sin conexión; ningún archivo de la
+persona forma parte de esa caché.
+
+## Instalación como aplicación
+
+Free PDF es una aplicación web progresiva. En un navegador compatible se puede
+usar la opción **Instalar aplicación** o **Añadir a la pantalla de inicio**. Una
+vez que termina la preparación inicial, la interfaz, las herramientas, PDF.js,
+qpdf y OCR quedan disponibles sin conexión.
+
+La aplicación instalada mantiene exactamente el mismo modelo de privacidad: los
+documentos siguen viviendo únicamente en memoria. La caché persistente contiene
+solo los 283 recursos públicos de Free PDF y se renueva de forma versionada en
+cada publicación. Los detalles técnicos y el proceso de actualización están en
+[docs/PWA.md](docs/PWA.md).
 
 ## Herramientas disponibles
 
@@ -205,9 +221,10 @@ Estas peticiones:
 - **van al mismo origen** que la aplicación y respetan la ruta base `/free-pdf/`;
 - **no contienen ningún dato tuyo**: solo traen tablas, tipografías y descodificadores;
 - **no son una subida de archivos**: tu documento nunca sale del navegador;
-- se realizan **solo cuando hacen falta**, es decir, cuando el documento concreto que has abierto usa ese recurso.
+- en producción quedan además preparadas por la PWA para que el documento pueda
+  procesarse sin conexión.
 
-Los recursos OCR siguen el mismo principio. El trabajador, los tres núcleos LSTM posibles y los modelos comprimidos `spa` y `eng` se publican bajo `/free-pdf/ocr/`. Suman 16,08 MiB y solo se solicitan al usar OCR. La compilación elimina las reservas de CDN de Tesseract y la herramienta desactiva su caché de IndexedDB.
+Los recursos OCR siguen el mismo principio. El trabajador, los tres núcleos LSTM posibles y los modelos comprimidos `spa` y `eng` se publican bajo `/free-pdf/ocr/`. Suman 16,08 MiB y la PWA los prepara para uso sin conexión. La compilación elimina las reservas de CDN de Tesseract y la herramienta desactiva su caché de IndexedDB para los datos de trabajo.
 
 Se excluye a propósito `quickjs-eval`, casi medio megabyte destinado a ejecutar el JavaScript incrustado en algunos PDF. Esa capacidad no se activa nunca, así que no se distribuye.
 
