@@ -62,6 +62,53 @@ jobs:
           fi
           echo "La compilación usa la ruta base ${RUTA_BASE}."
 
+      # Los recursos auxiliares de PDF.js se sirven desde la propia aplicación.
+      # Si faltasen, PDF.js dejaría de representar bien las tipografías, los
+      # alfabetos asiáticos y algunas imágenes, así que se comprueba que estén.
+      - name: Comprobar los recursos locales de PDF.js
+        run: |
+          for carpeta in cmaps standard_fonts wasm iccs; do
+            if [ ! -d "dist/pdfjs/${carpeta}" ]; then
+              echo "::error file=compilacion/recursosPdfJs.ts::Falta dist/pdfjs/${carpeta}. Revisa el complemento «recursosPdfJs»."
+              exit 1
+            fi
+            archivos=$(find "dist/pdfjs/${carpeta}" -type f | wc -l)
+            if [ "${archivos}" -eq 0 ]; then
+              echo "::error file=compilacion/recursosPdfJs.ts::dist/pdfjs/${carpeta} está vacía."
+              exit 1
+            fi
+            echo "dist/pdfjs/${carpeta}: ${archivos} archivos."
+          done
+
+      # El motor de cifrado también viaja dentro del sitio, y no debe formar parte
+      # del paquete inicial: solo se descarga al abrir Proteger o Desbloquear.
+      - name: Comprobar el WebAssembly de qpdf
+        run: |
+          if ! ls dist/assets/qpdf-*.wasm >/dev/null 2>&1; then
+            echo "::error file=src/seguridad/qpdf/recursosQpdf.ts::Falta el WebAssembly de qpdf en dist/assets."
+            exit 1
+          fi
+          echo "qpdf: $(du -h dist/assets/qpdf-*.wasm | cut -f1)"
+
+          inicial=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
+          for marca in qpdf callMain PDFDocument getDocument; do
+            if grep -qF "${marca}" "dist/${inicial}"; then
+              echo "::error::El paquete inicial contiene «${marca}»; debe cargarse de forma diferida."
+              exit 1
+            fi
+          done
+          echo "El paquete inicial no incluye qpdf, pdf-lib ni PDF.js."
+
+      # La aplicación no debe pedir nada a una red de distribución de contenidos:
+      # todos los recursos viajan dentro del sitio publicado.
+      - name: Comprobar que no se usa ninguna CDN
+        run: |
+          if grep -rIlE 'unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|mozilla\.github\.io/pdf\.js' dist; then
+            echo "::error::La compilación referencia una CDN. Todos los recursos deben servirse desde el propio sitio."
+            exit 1
+          fi
+          echo "No se referencia ninguna CDN."
+
       # El artefacto solo se prepara cuando va a desplegarse de verdad.
       - name: Preparar el artefacto de GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
