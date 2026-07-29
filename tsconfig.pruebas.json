@@ -1,0 +1,38 @@
+{
+  /*
+   * Comprobación de tipos de las pruebas.
+   *
+   * Se separan del código de la aplicación porque necesitan cosas que este no
+   * debe tener a mano: los tipos de Node —para cargar el WebAssembly de qpdf
+   * desde el sistema de archivos en las pruebas del motor real— junto con los del
+   * navegador, que usan las pruebas de interfaz.
+   *
+   * Mantener esta separación evita que una API de Node acabe en el código que se
+   * ejecuta en el navegador sin que nadie se dé cuenta.
+   */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.pruebas.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["node", "vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/pruebas"]
+}
