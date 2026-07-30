@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Aplicacion } from './Aplicacion.tsx'
+import { registrarPwa } from './pwa/registrarPwa.ts'
 import './estilos-globales.css'
 
 const contenedor = document.getElementById('raiz')
@@ -14,3 +15,5 @@ createRoot(contenedor).render(
     <Aplicacion />
   </StrictMode>,
 )
+
+registrarPwa()
