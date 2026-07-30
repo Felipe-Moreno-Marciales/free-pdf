@@ -1,5 +1,6 @@
 import { NOMBRE_APLICACION, URL_REPOSITORIO } from '../constantes'
 import { IconoGitHub, IconoLogotipo } from './Iconos'
+import { SelectorTema } from './SelectorTema'
 
 /** Cabecera con la marca del proyecto y los enlaces principales. */
 export function Encabezado() {
@@ -28,6 +29,7 @@ export function Encabezado() {
               (se abre en una pestaña nueva)
             </span>
           </a>
+          <SelectorTema />
         </nav>
       </div>
     </header>
