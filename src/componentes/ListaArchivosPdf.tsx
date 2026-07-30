@@ -1,7 +1,5 @@
-import type {
-  DireccionMovimiento,
-  PdfSeleccionado,
-} from '../funcionalidades/unir-pdf/tipos'
+import type { DireccionMovimiento } from '../funcionalidades/unir-pdf/tipos'
+import type { PdfSeleccionado } from '../pdf/tipos'
 import { formatearTamanoArchivo } from '../utilidades/formatearTamano'
 import {
   IconoArchivoPdf,
