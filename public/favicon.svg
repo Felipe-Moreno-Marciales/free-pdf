@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Free PDF">
-  <rect width="32" height="32" rx="8" fill="#4f46e5" />
+  <rect width="32" height="32" rx="8" fill="#2196f3" />
   <g fill="none" stroke-width="2.2" stroke-linejoin="round">
-    <rect x="6.5" y="5" width="12.5" height="16" rx="3" stroke="#c7d2fe" />
-    <rect x="13" y="11" width="12.5" height="16" rx="3" fill="#4f46e5" stroke="#ffffff" />
+    <rect x="6.5" y="5" width="12.5" height="16" rx="3" stroke="#bbdefb" />
+    <rect x="13" y="11" width="12.5" height="16" rx="3" fill="#2196f3" stroke="#ffffff" />
   </g>
 </svg>
