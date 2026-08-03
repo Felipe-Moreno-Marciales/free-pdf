@@ -1,10 +1,8 @@
+import { EstadoProcesamiento } from '../../componentes/EstadoProcesamiento'
 import {
-  IconoAlerta,
-  IconoCargando,
   IconoDescargar,
   IconoPapelera,
   IconoUnir,
-  IconoVerificado,
 } from '../../componentes/Iconos'
 import { ListaArchivosPdf } from '../../componentes/ListaArchivosPdf'
 import { ZonaArrastrePdf } from '../../componentes/ZonaArrastrePdf'
@@ -12,7 +10,7 @@ import { formatearTamanoArchivo } from '../../utilidades/formatearTamano'
 import { MINIMO_ARCHIVOS_PARA_UNIR } from './unirPdf'
 import { useUnirPdf } from './useUnirPdf'
 
-/** Herramienta para combinar varios documentos PDF en uno solo. */
+/** Interfaz de la herramienta para combinar varios documentos en uno solo. */
 export function HerramientaUnirPdf() {
   const {
     archivos,
@@ -40,20 +38,11 @@ export function HerramientaUnirPdf() {
       : `${archivos.length} archivos seleccionados`
 
   return (
-    <section
-      className="herramienta"
-      id="herramientas"
-      aria-labelledby="herramienta-titulo"
-    >
-      <div className="herramienta__introduccion">
-        <h2 className="herramienta__titulo" id="herramienta-titulo">
-          Unir PDF
-        </h2>
-        <p className="herramienta__descripcion">
-          Combina varios documentos en un único PDF. El orden de la lista es el
-          orden final de las páginas.
-        </p>
-      </div>
+    <div className="herramienta__cuerpo">
+      <p className="herramienta__instrucciones">
+        El orden de la lista es el orden final de las páginas. Puedes añadir más
+        archivos en cualquier momento.
+      </p>
 
       <ZonaArrastrePdf
         alSeleccionarArchivos={anadirArchivos}
@@ -94,11 +83,7 @@ export function HerramientaUnirPdf() {
           disabled={!puedeUnir}
           onClick={unir}
         >
-          {estaUniendo ? (
-            <IconoCargando className="boton__icono boton__icono--girando" />
-          ) : (
-            <IconoUnir className="boton__icono" />
-          )}
+          <IconoUnir className="boton__icono" />
           {estaUniendo ? 'Uniendo PDF…' : 'Unir PDF'}
         </button>
 
@@ -121,39 +106,24 @@ export function HerramientaUnirPdf() {
         </p>
       )}
 
-      <div className="herramienta__mensajes" role="status" aria-live="polite">
-        {estaUniendo && (
-          <p className="mensaje mensaje--proceso">
-            <IconoCargando className="mensaje__icono mensaje__icono--girando" />
-            Uniendo los archivos seleccionados. Puede tardar unos segundos.
-          </p>
-        )}
-
-        {estado === 'completado' && resultado !== null && (
-          <p className="mensaje mensaje--correcto">
-            <IconoVerificado className="mensaje__icono" />
-            PDF unido correctamente:{' '}
-            {resultado.numeroPaginas === 1
-              ? '1 página'
-              : `${resultado.numeroPaginas} páginas`}{' '}
-            y {formatearTamanoArchivo(resultado.tamano)}. La descarga se ha
-            iniciado automáticamente.
-          </p>
-        )}
-
-        {mensajeAviso !== null && (
-          <p className="mensaje mensaje--informacion">{mensajeAviso}</p>
-        )}
-      </div>
-
-      <div className="herramienta__mensajes" role="alert" aria-live="assertive">
-        {mensajeError !== null && (
-          <p className="mensaje mensaje--error">
-            <IconoAlerta className="mensaje__icono" />
-            {mensajeError}
-          </p>
-        )}
-      </div>
-    </section>
+      <EstadoProcesamiento
+        textoProceso={
+          estaUniendo
+            ? 'Uniendo los archivos seleccionados. Puede tardar unos segundos.'
+            : null
+        }
+        textoExito={
+          estado === 'completado' && resultado !== null
+            ? `PDF unido correctamente: ${resultado.numeroPaginas} ${
+                resultado.numeroPaginas === 1 ? 'página' : 'páginas'
+              } y ${formatearTamanoArchivo(
+                resultado.tamano,
+              )}. La descarga se ha iniciado automáticamente.`
+            : null
+        }
+        textoAviso={mensajeAviso}
+        textoError={mensajeError}
+      />
+    </div>
   )
 }
