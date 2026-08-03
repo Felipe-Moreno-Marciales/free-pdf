@@ -1,13 +1,13 @@
+import type {
+  ArchivoDescartado,
+  MotivoDescarte,
+  PdfSeleccionado,
+} from '../../pdf/tipos'
 import {
   construirIdArchivo,
   esArchivoPdf,
 } from '../../utilidades/validacionArchivos'
-import type {
-  ArchivoDescartado,
-  DireccionMovimiento,
-  MotivoDescarte,
-  PdfSeleccionado,
-} from './tipos'
+import type { DireccionMovimiento } from './tipos'
 
 /** Número máximo de archivos descartados que se detallan en el aviso. */
 const MAXIMO_DESCARTES_DETALLADOS = 3

@@ -9,11 +9,10 @@ import {
   eliminarArchivoDeSeleccion,
   moverArchivoEnSeleccion,
 } from './seleccion'
+import type { ArchivoDescartado, PdfSeleccionado } from '../../pdf/tipos'
 import type {
-  ArchivoDescartado,
   DireccionMovimiento,
   EstadoUnion,
-  PdfSeleccionado,
   ResultadoUnion,
 } from './tipos'
 
