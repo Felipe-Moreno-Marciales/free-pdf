@@ -41,7 +41,7 @@ Todo ocurre en el navegador:
 | --- | ------- |
 | Leer y modificar documentos | [pdf-lib](https://pdf-lib.js.org/) |
 | Dibujar páginas | [PDF.js](https://mozilla.github.io/pdf.js/) |
-| Cifrar y descifrar | [qpdf](https://github.com/qpdf/qpdf) 12.2.0 compilado a WebAssembly |
+| Cifrar, descifrar e inspeccionar la estructura | [qpdf](https://github.com/qpdf/qpdf) 12.2.0 compilado a WebAssembly |
 | Tratar imágenes | `canvas` y `createImageBitmap` del navegador |
 | Comprimir | [fflate](https://github.com/101arrowz/fflate) |
 
@@ -59,6 +59,42 @@ Están tratadas con detalle en [CIFRADO.md](CIFRADO.md). Resumen:
 
 **Limitación honesta:** las cadenas de JavaScript son inmutables, así que no se pueden sobrescribir en memoria. Lo único posible es dejar de referenciarlas para que el recolector de basura las reclame, y eso es lo que se hace.
 
+## Inspector de seguridad PDF
+
+El inspector realiza un **análisis estructural**, no un análisis antivirus. qpdf
+12.2.0 genera dentro del Web Worker una representación JSON de los objetos del
+documento y omite los datos de los flujos. Un recorrido acotado y defensivo trata
+esa representación como entrada no confiable y busca las claves y relaciones
+relevantes.
+
+El informe señala JavaScript, acciones al abrir o adicionales, acciones
+`/Launch`, envíos de formularios, enlaces externos, RichMedia, AcroForm, XFA y
+archivos incrustados. Cuando qpdf facilita sus metadatos, también muestra el
+nombre, la extensión y el tipo declarado del adjunto, y destaca extensiones que
+parecen ejecutables o scripts. Una extensión o una característica estructural
+**no demuestra por sí sola que el documento sea malicioso**.
+
+Durante la inspección:
+
+- no se evalúa JavaScript;
+- no se ejecutan acciones;
+- no se abren enlaces;
+- no se extraen ni abren adjuntos;
+- no se envían el archivo, su hash ni los hallazgos a ningún servicio.
+
+La clasificación usa cuatro niveles descriptivos —sin indicios, bajo,
+precaución y elevado— y reglas deterministas. No usa una puntuación que sugiera
+una certeza inexistente. Una acción `/Launch`, un adjunto con extensión ejecutable
+o una acción automática asociada a JavaScript elevan el resultado; un enlace
+externo aislado no se presenta como malware.
+
+Si el documento está cifrado y qpdf no puede leer su estructura sin contraseña,
+el inspector no solicita la clave ni presenta un resultado parcial como
+definitivo: indica que primero debe usarse «Desbloquear PDF». El análisis tampoco
+puede detectar vulnerabilidades del lector, contenido oculto fuera de la
+estructura interpretada ni afirmar que un archivo sea seguro. **No sustituye a
+un antivirus y no puede garantizar la ausencia de malware.**
+
 ## Firma visual
 
 *Pendiente de implementación.* Cuando exista, la distinción será explícita: una firma dibujada, escrita o importada es una **imagen colocada en el documento**. No es una firma digital: no incluye certificado, no valida la identidad de nadie, no lleva sello de tiempo y no detecta si el documento se modificó después. Sirve para lo mismo que firmar un papel con bolígrafo, ni más ni menos.
@@ -74,7 +110,7 @@ La aplicación libera lo que reserva:
 - Los dibujados pendientes se cancelan con `AbortController`.
 - Las pistas de la cámara se detienen al cambiar de cámara, al apagarla, al restablecer y al desmontar.
 - **El Web Worker de qpdf se destruye con `terminate()`** al salir de la herramienta y al restablecer. El hilo, el WebAssembly y su sistema de archivos virtual desaparecen con él.
-- Cada operación de qpdf usa una **instancia nueva** del motor, así que arranca con el sistema de archivos vacío, y borra con `unlink` todo lo que escribe, también cuando falla.
+- Cada operación de qpdf usa una **instancia nueva** del motor, así que arranca con el sistema de archivos vacío, y borra con `unlink` todo lo que escribe —incluido el JSON temporal del inspector—, también cuando falla.
 
 ## Verificación antes de entregar
 
@@ -103,7 +139,7 @@ Dependencias de producción actuales:
 | `pdf-lib` | MIT | Crear y modificar documentos |
 | `pdfjs-dist` | Apache-2.0 | Dibujar páginas |
 | `fflate` | MIT | Generar ZIP |
-| `@neslinesli93/qpdf-wasm` | ISC | Cifrar y descifrar |
+| `@neslinesli93/qpdf-wasm` | ISC | Cifrar, descifrar, reparar, comprimir e inspeccionar estructura |
 
 ## Informar de una vulnerabilidad
 
