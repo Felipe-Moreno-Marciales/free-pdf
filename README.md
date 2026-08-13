@@ -50,8 +50,10 @@ privacidad del proyecto.
 
 ## Herramientas
 
-Las 23 herramientas están implementadas y se cargan de forma diferida: la
-portada no descarga los motores pesados hasta que hacen falta.
+Las 24 herramientas están implementadas y sus módulos se cargan de forma
+diferida. En producción, la PWA descarga sus recursos estáticos tras la primera
+carga para dejarlos disponibles sin conexión, pero los motores no se ejecutan
+hasta abrir la herramienta correspondiente.
 
 ### Organización
 
@@ -79,6 +81,7 @@ portada no descarga los motores pesados hasta que hacen falta.
 
 | Herramienta | Función |
 | ----------- | ------- |
+| Inspector de seguridad PDF | Analiza la estructura y señala indicadores de acciones, contenido interactivo y adjuntos sensibles. |
 | Proteger PDF | Cifra con AES de 256 bits y configura permisos. |
 | Desbloquear PDF | Quita la protección con la contraseña correcta. |
 | Formularios PDF | Inspecciona, rellena, crea y aplana campos AcroForm. |
@@ -127,7 +130,7 @@ Consulta el [modelo de seguridad](docs/SEGURIDAD.md) y los detalles del
 Free PDF es una PWA. Los navegadores compatibles permiten usar **Instalar
 aplicación** o **Añadir a la pantalla de inicio**.
 
-La compilación genera un service worker versionado que prepara 283 recursos
+La compilación genera un service worker versionado que prepara 285 recursos
 públicos —aproximadamente 23 MiB— para trabajar sin conexión. Esto incluye la
 interfaz, PDF.js, qpdf, OCR y sus modelos locales; nunca incluye documentos de
 la persona.
@@ -197,11 +200,11 @@ compilacion/            Complementos de Vite para PDF.js, OCR y PWA
 public/                 Manifiesto, favicon e iconos instalables
 src/
 ├── componentes/        Componentes visuales reutilizables
-├── funcionalidades/    Una carpeta por cada una de las 23 herramientas
+├── funcionalidades/    Una carpeta por cada una de las 24 herramientas
 ├── herramientas/       Catálogo, categorías y carga diferida
 ├── pdf/                Carga, validación, dibujo y geometría PDF
 ├── imagenes/           Validación, recorte, filtros y conversión
-├── seguridad/          qpdf, cifrado, permisos y censura
+├── seguridad/          qpdf, inspección, cifrado, permisos y censura
 ├── ocr/                Motor y recursos locales de reconocimiento
 ├── edicion/             Elementos y aplicación de capas visuales
 ├── formularios/        Inspección y validación de AcroForm
