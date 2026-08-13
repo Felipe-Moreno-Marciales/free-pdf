@@ -324,6 +324,17 @@ export function IconoEscudo({ className }: PropiedadesIcono) {
   )
 }
 
+/** Escudo con lupa: inspeccionar características sensibles sin ejecutarlas. */
+export function IconoInspeccionarSeguridad({ className }: PropiedadesIcono) {
+  return (
+    <IconoTrazo className={className}>
+      <path d="M11.5 3 5 5.8v5.4c0 3.7 2.1 6.8 5.4 8.3" />
+      <circle cx="15.3" cy="15.3" r="4.1" />
+      <path d="m18.3 18.3 3.2 3.2" />
+    </IconoTrazo>
+  )
+}
+
 /** Signos de mayor y menor: código abierto. */
 export function IconoCodigo({ className }: PropiedadesIcono) {
   return (
