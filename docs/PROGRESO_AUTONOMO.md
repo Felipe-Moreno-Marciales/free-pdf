@@ -4,17 +4,17 @@ Registro del trabajo realizado sin supervisión directa. Deja constancia honesta
 de **qué está terminado y verificado**, qué quedó bloqueado por una limitación
 técnica y cuáles son los invariantes que debe conservar el mantenimiento.
 
-**Última actualización:** 29 de julio de 2026
+**Última actualización:** 13 de agosto de 2026
 **Rama:** `development`
 **Compilación:** correcta · **Tipos:** correctos · **Análisis estático:** limpio
-**Pruebas:** 1382, todas pasando, en 42 archivos
-**Herramientas registradas y funcionando:** 23
+**Pruebas:** 1499, todas pasando, en 46 archivos
+**Herramientas registradas y funcionando:** 24
 
 **Interfaz:** identidad visual azul y selector accesible de tema claro/oscuro;
 parte de la preferencia del dispositivo y no la guarda de forma persistente.
 
 **Instalación:** PWA con manifiesto, iconos normal y enmascarable, actualización
-versionada y precaché de los 283 recursos locales para uso sin conexión.
+versionada y precaché de los 285 recursos locales para uso sin conexión.
 
 ## Cómo leer este documento
 
@@ -50,10 +50,12 @@ Infraestructura reutilizable que dejó esta fase:
 
 ### Fase 3 — Seguridad y edición · Terminada
 
-**Seis de seis.** Es la fase que se cerró en este bloque de trabajo.
+**Siete herramientas terminadas.** La inspección estructural se añadió sin
+cambiar el procesamiento local de la fase.
 
 | Herramienta | Estado | Nota |
 | ----------- | ------ | ---- |
+| Inspector de seguridad PDF | Terminada | JSON estructural de qpdf, reglas deterministas y sin ejecutar contenido activo |
 | Proteger PDF | Terminada | AES-256 real con qpdf 12.2.0 en WebAssembly |
 | Desbloquear PDF | Terminada | Descifrado real, con la contraseña correcta |
 | Formularios PDF | Terminada | Inspección, rellenado, creación y aplanado |
@@ -69,7 +71,8 @@ Lo relevante de la integración de qpdf, porque condiciona todo lo que venga des
 - La consola se intercepta **antes** de evaluar el módulo, porque el código de enlace de Emscripten captura `console.log` y `console.error` en el momento de la evaluación. Hacerlo después no funciona.
 - El sistema de archivos virtual se limpia siempre, en `finally`.
 - Las contraseñas de descifrado se pasan por `--password-file`, no en la lista de argumentos.
-- Hay 22 pruebas que ejecutan el **WebAssembly real**, no una imitación.
+- La suite incluye pruebas que ejecutan el **WebAssembly real**, no una
+  imitación, también para el Inspector.
 
 Lo relevante del editor visual, que es lo último construido:
 
@@ -141,7 +144,7 @@ validador PDF/A completo y mantenido para navegador/WebAssembly.
 
 | Documento | Estado |
 | --------- | ------ |
-| `README.md` | Al día con las 23 herramientas y con el alcance definitivo |
+| `README.md` | Al día con las 24 herramientas y con el alcance definitivo |
 | `docs/HOJA_DE_RUTA.md` | Al día; fase final cerrada con el bloqueo PDF/A |
 | `docs/PROGRESO_AUTONOMO.md` | Este documento |
 | `docs/CIFRADO.md` | Terminado |

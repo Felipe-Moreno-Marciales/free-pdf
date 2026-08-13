@@ -134,10 +134,11 @@ Las seis herramientas están implementadas, cubiertas por pruebas automatizadas 
 
 ## Fase 3 — Seguridad y edición
 
-**Estado de la fase: terminada.** Las seis herramientas están implementadas y verificadas.
+**Estado de la fase: terminada.** Las siete herramientas están implementadas y verificadas.
 
 | Herramienta | Estado | Prioridad | Procesamiento | Dependencias | Limitaciones conocidas |
 | ----------- | ------ | --------- | ------------- | ------------ | ---------------------- |
+| Inspector de seguridad PDF | Terminada | Alta | WebAssembly | `qpdf` 12.2.0 vía `@neslinesli93/qpdf-wasm` | Es un análisis estructural, no un antivirus. No garantiza que el archivo sea seguro y no inspecciona cifrados que requieren contraseña. |
 | Proteger con contraseña | Terminada | Alta | WebAssembly | `qpdf` 12.2.0 vía `@neslinesli93/qpdf-wasm` | Los permisos dependen de que el lector los respete. La accesibilidad se permite siempre con AES-256. Al cifrar, la contraseña viaja en los argumentos de qpdf dentro del trabajador. |
 | Desbloquear | Terminada | Alta | WebAssembly | La misma que la anterior | Solo con la contraseña correcta. No se implementa ninguna forma de saltarse la protección. |
 | Censurar permanentemente | Terminada | Alta | Navegador | `pdfjs-dist`, `pdf-lib` | Reconstruye **todas** las páginas como imágenes, así que el texto deja de ser seleccionable y **se pierde la estructura de accesibilidad**. No hay búsqueda de texto ni detección automática de datos sensibles: las zonas se marcan a mano. |

@@ -169,7 +169,11 @@ Eso ocurre **dentro del trabajador**, en memoria. Las medidas que lo acompañan:
 
 - Los argumentos no se registran nunca, ni completos ni en parte.
 - La consola se intercepta **antes** de evaluar el módulo de qpdf (ver más abajo), así que nada de lo que escriba llega a la consola del navegador.
-- Los mensajes se depuran con `depurarMensaje` antes de salir del trabajador, sustituyendo cualquier aparición de una contraseña por `«contraseña oculta»`. Es una red de seguridad: se comprobó que qpdf no las imprime, pero se depura de todos modos por si una versión futura cambiara.
+- Los mensajes se recogen con un presupuesto fijo y se redactan antes de salir
+  del trabajador. El marcador se elige de forma que no pueda contener ninguna
+  de las contraseñas de la operación. Es una red de seguridad: se comprobó que
+  qpdf no las imprime, pero se depura de todos modos por si una versión futura
+  cambiara.
 
 ### La interceptación de la consola
 
