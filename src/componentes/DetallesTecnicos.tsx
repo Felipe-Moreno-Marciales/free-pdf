@@ -11,6 +11,8 @@ interface PropiedadesDetallesTecnicos {
   readonly explicacion: ReactNode
   /** Rótulo del control que despliega los detalles. */
   readonly titulo?: string
+  /** Aclaración breve sobre la naturaleza del contenido desplegable. */
+  readonly aclaracion?: string
   /** Contenido técnico, que puede venir en inglés del motor. */
   readonly children: ReactNode
 }
@@ -34,6 +36,7 @@ interface PropiedadesDetallesTecnicos {
 export function DetallesTecnicos({
   explicacion,
   titulo = 'Detalles técnicos',
+  aclaracion = 'Texto original del motor, en inglés',
   children,
 }: PropiedadesDetallesTecnicos) {
   const [abierto, establecerAbierto] = useState(false)
@@ -56,7 +59,7 @@ export function DetallesTecnicos({
           <IconoCodigo className="detalles-tecnicos__icono" />
           {titulo}
           <span className="detalles-tecnicos__aclaracion">
-            Texto original del motor, en inglés
+            {aclaracion}
           </span>
         </summary>
 
