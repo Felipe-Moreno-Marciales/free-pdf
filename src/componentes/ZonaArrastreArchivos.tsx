@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react'
-import type { ChangeEvent, DragEvent } from 'react'
+import type { ChangeEvent, DragEvent, Ref } from 'react'
 import { IconoSubir } from './Iconos'
 
 interface PropiedadesZonaArrastreArchivos {
@@ -17,6 +17,8 @@ interface PropiedadesZonaArrastreArchivos {
   readonly ayuda: string
   /** Nombre accesible del selector de archivos. */
   readonly nombreAccesible: string
+  /** Referencia opcional al control nativo para gestionar el foco. */
+  readonly referenciaCampo?: Ref<HTMLInputElement>
 }
 
 /**
@@ -38,6 +40,7 @@ export function ZonaArrastreArchivos({
   titulo,
   ayuda,
   nombreAccesible,
+  referenciaCampo,
 }: PropiedadesZonaArrastreArchivos) {
   const idCampo = useId()
   const idAyuda = useId()
@@ -109,6 +112,7 @@ export function ZonaArrastreArchivos({
       onDrop={gestionarSoltar}
     >
       <input
+        ref={referenciaCampo}
         className="zona-arrastre__campo"
         id={idCampo}
         type="file"
