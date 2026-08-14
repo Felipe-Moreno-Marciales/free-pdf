@@ -12,6 +12,7 @@ import {
   IconoFirma,
   IconoFormulario,
   IconoImagenAPdf,
+  IconoInspeccionarSeguridad,
   IconoMarcaDeAgua,
   IconoNumerarPaginas,
   IconoOrganizar,
@@ -54,7 +55,7 @@ export const CATEGORIAS: readonly DefinicionCategoria[] = [
     id: 'seguridad',
     nombre: 'Seguridad y edición',
     descripcion:
-      'Cifra documentos, quita la protección de los que ya la tienen, trabaja con formularios, censura información de verdad, anota y firma visualmente.',
+      'Inspecciona la estructura, cifra documentos, quita la protección de los que ya la tienen, trabaja con formularios, censura información de verdad, anota y firma visualmente.',
   },
   {
     id: 'analisis',
@@ -251,6 +252,22 @@ export const HERRAMIENTAS: readonly DefinicionHerramienta[] = [
           '../funcionalidades/escanear-a-pdf/HerramientaEscanearAPdf'
         )
       ).HerramientaEscanearAPdf,
+    })),
+  },
+  {
+    id: 'inspeccionar-seguridad',
+    categoria: 'seguridad',
+    nombre: 'Inspector de seguridad PDF',
+    descripcion:
+      'Analiza localmente la estructura del PDF y señala JavaScript, acciones automáticas, archivos incrustados y otras características sensibles.',
+    Icono: IconoInspeccionarSeguridad,
+    disponible: true,
+    Panel: lazy(async () => ({
+      default: (
+        await import(
+          '../funcionalidades/inspeccionar-seguridad/HerramientaInspeccionarSeguridad'
+        )
+      ).HerramientaInspeccionarSeguridad,
     })),
   },
   {
