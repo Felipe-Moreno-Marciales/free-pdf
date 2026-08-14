@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { PDFDocument, PDFName, PDFString, StandardFonts } from 'pdf-lib'
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   construirArgumentosCifrado,
@@ -16,7 +16,7 @@ import {
   detectarImagenesIntocables,
   REDUCCION_MINIMA_UTIL,
 } from '../seguridad/qpdf/compresionPdf'
-import { deducirCodigo, depurarMensaje } from '../seguridad/qpdf/erroresQpdf'
+import { deducirCodigo } from '../seguridad/qpdf/erroresQpdf'
 import {
   construirArgumentosComprobacion,
   construirArgumentosRecuentoPaginas,
@@ -24,6 +24,18 @@ import {
   interpretarComprobacion,
 } from '../seguridad/qpdf/reparacionPdf'
 import type { PermisosPdf } from '../seguridad/qpdf/tipos'
+import {
+  CLAVES_JSON_INSPECCION,
+  construirArgumentosInspeccionSeguridad,
+  esEjecucionJsonUtilizable,
+  leerJsonInspeccion,
+  leerSalidaJsonInspeccion,
+  necesitaContrasenaParaInspeccionar,
+  TAMANO_MAXIMO_JSON_INSPECCION,
+  VERSION_JSON_QPDF,
+} from '../seguridad/qpdf/inspeccionSeguridadPdf'
+import { crearRecolectorMensajesQpdf } from '../seguridad/qpdf/recolectorMensajesQpdf'
+import { analizarEstructuraQpdf } from '../seguridad/inspeccion/analizarEstructura'
 
 /**
  * Pruebas del **motor real** de qpdf, no de un simulacro.
@@ -43,8 +55,8 @@ import type { PermisosPdf } from '../seguridad/qpdf/tipos'
  * `console.error` en el momento de evaluarse.
  */
 
-/** Mensajes que qpdf escribe durante la operación en curso. */
-let recogidos: string[] = []
+/** Mismo recolector acotado y con redacción que utiliza el Worker real. */
+const recolectorMensajes = crearRecolectorMensajesQpdf()
 
 /** Consola real, para poder informar sin quedar atrapado en la interceptación. */
 const salidaReal = console.log.bind(console)
@@ -53,6 +65,7 @@ const salidaReal = console.log.bind(console)
 interface SistemaVirtual {
   writeFile: (ruta: string, datos: Uint8Array) => void
   readFile: (ruta: string) => Uint8Array
+  stat: (ruta: string) => { readonly size: number }
   unlink: (ruta: string) => void
 }
 
@@ -75,7 +88,7 @@ beforeAll(() => {
   // La interceptación se instala antes del `require`, que es cuando el pegamento
   // captura `console.log` y `console.error`.
   const recoger = (...partes: readonly unknown[]): void => {
-    recogidos.push(partes.map((parte) => String(parte)).join(' '))
+    recolectorMensajes.recoger(...partes)
   }
   console.log = recoger
   console.error = recoger
@@ -103,7 +116,7 @@ function ejecutar(
   argumentos: readonly string[],
   secretos: readonly string[] = [],
 ): Ejecucion {
-  recogidos = []
+  recolectorMensajes.reiniciar(secretos)
 
   let codigo: number
   try {
@@ -113,8 +126,7 @@ function ejecutar(
     codigo = typeof estado === 'number' ? estado : -1
   }
 
-  const mensajes = recogidos.map((mensaje) => depurarMensaje(mensaje, secretos))
-  recogidos = []
+  const mensajes = recolectorMensajes.vaciar()
 
   return { codigo, mensajes }
 }
@@ -140,6 +152,21 @@ async function crearPdf(numeroPaginas: number): Promise<Uint8Array> {
   }
 
   return await documento.save()
+}
+
+/** PDF válido cuyo único flujo declara Flate pero contiene bytes inválidos. */
+async function crearPdfConFlujoFlateInvalido(): Promise<Uint8Array> {
+  const documento = await PDFDocument.create()
+  const pagina = documento.addPage()
+  const flujo = documento.context.register(
+    documento.context.stream(new Uint8Array([1, 2, 3, 4, 5]), {
+      Filter: PDFName.of('FlateDecode'),
+    }),
+  )
+
+  pagina.node.set(PDFName.of('Contents'), flujo)
+
+  return await documento.save({ useObjectStreams: false })
 }
 
 /** Pide el informe de cifrado de un documento ya escrito en `/e.pdf`. */
@@ -192,6 +219,144 @@ async function cifrar(
   return { bytes: leerSiExiste(instancia, '/s.pdf'), ejecucion }
 }
 
+/**
+ * Genera un PDF benigno que declara todos los indicadores del inspector.
+ *
+ * Las acciones contienen datos inertes y destinos URN sin red: la prueba
+ * comprueba estructura, no ejecuta ni distribuye código malicioso.
+ */
+async function crearPdfConIndicadoresSeguridad(): Promise<Uint8Array> {
+  const documento = await PDFDocument.create()
+  const pagina = documento.addPage()
+  const contexto = documento.context
+
+  await documento.attach(
+    new TextEncoder().encode('adjunto benigno para una prueba automatizada'),
+    'ejemplo.exe',
+    { mimeType: 'application/octet-stream' },
+  )
+
+  const javascript = contexto.register(
+    contexto.obj({
+      S: PDFName.of('JavaScript'),
+      JS: PDFString.of('void 0'),
+    }),
+  )
+  const lanzamiento = contexto.register(
+    contexto.obj({
+      S: PDFName.of('Launch'),
+      F: PDFString.of('manual.txt'),
+    }),
+  )
+  const envio = contexto.register(
+    contexto.obj({
+      S: PDFName.of('SubmitForm'),
+      F: PDFString.of('urn:free-pdf:destino-formulario-prueba'),
+    }),
+  )
+  const enlace = contexto.register(
+    contexto.obj({
+      S: PDFName.of('URI'),
+      URI: PDFString.of('urn:free-pdf:destino-enlace-prueba'),
+    }),
+  )
+  const contenidoEnriquecido = contexto.register(
+    contexto.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('RichMedia'),
+      Rect: [0, 0, 10, 10],
+    }),
+  )
+  const formularioXfa = contexto.register(
+    contexto.obj({
+      Fields: [],
+      XFA: PDFString.of('estructura benigna'),
+    }),
+  )
+  const anotacionEnvio = contexto.register(
+    contexto.obj({
+      A: envio,
+      Rect: [0, 0, 10, 10],
+      Subtype: PDFName.of('Link'),
+      Type: PDFName.of('Annot'),
+    }),
+  )
+  const anotacionEnlace = contexto.register(
+    contexto.obj({
+      A: enlace,
+      Rect: [10, 0, 20, 10],
+      Subtype: PDFName.of('Link'),
+      Type: PDFName.of('Annot'),
+    }),
+  )
+
+  documento.catalog.set(PDFName.of('OpenAction'), javascript)
+  documento.catalog.set(
+    PDFName.of('AA'),
+    contexto.obj({ WC: lanzamiento }),
+  )
+  documento.catalog.set(PDFName.of('AcroForm'), formularioXfa)
+  pagina.node.set(
+    PDFName.of('Annots'),
+    contexto.obj([contenidoEnriquecido, anotacionEnvio, anotacionEnlace]),
+  )
+
+  return await documento.save({ useObjectStreams: false })
+}
+
+/** OpenAction de navegación y JavaScript separado que solo se activa al pulsar. */
+async function crearPdfConJavaScriptInteractivoSeparado(): Promise<Uint8Array> {
+  const documento = await PDFDocument.create()
+  const pagina = documento.addPage()
+  const contexto = documento.context
+  const javascript = contexto.register(
+    contexto.obj({
+      S: PDFName.of('JavaScript'),
+      JS: PDFString.of('void 0'),
+    }),
+  )
+  const anotacion = contexto.register(
+    contexto.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('Link'),
+      Rect: [0, 0, 10, 10],
+      A: javascript,
+    }),
+  )
+  const navegacion = contexto.register(
+    contexto.obj({
+      S: PDFName.of('GoTo'),
+      D: contexto.obj([pagina.ref, PDFName.of('Fit')]),
+    }),
+  )
+
+  pagina.node.set(PDFName.of('Annots'), contexto.obj([anotacion]))
+  documento.catalog.set(PDFName.of('OpenAction'), navegacion)
+
+  return await documento.save({ useObjectStreams: false })
+}
+
+/** Crea una tabla xref reparable para provocar el código 3 de qpdf. */
+async function crearPdfConAdvertenciaReparable(): Promise<Uint8Array> {
+  const documento = await PDFDocument.create()
+  documento.addPage()
+
+  const original = await documento.save({ useObjectStreams: false })
+  const texto = Array.from(original, (byte) => String.fromCharCode(byte)).join(
+    '',
+  )
+  const entradas = [...texto.matchAll(/\d{10} 00000 n/g)]
+  const ultima = entradas.at(-1)?.[0]
+
+  if (ultima === undefined) {
+    throw new Error('El PDF de prueba no contiene una entrada xref utilizable.')
+  }
+
+  const alterado = texto.replace(ultima, '0000000000 00000 n')
+
+  return Uint8Array.from(alterado, (caracter) => caracter.charCodeAt(0))
+}
+
 describe('motor qpdf: disponibilidad', () => {
   it('el WebAssembly está presente en el paquete instalado', () => {
     expect(rutaWasm).toContain('qpdf.wasm')
@@ -213,6 +378,370 @@ describe('motor qpdf: disponibilidad', () => {
 
     // Si no se capturase, esto llegaría a la consola del navegador.
     expect(mensajes.length).toBeGreaterThan(0)
+  })
+})
+
+describe('motor qpdf: inspección estructural JSON', () => {
+  it('construye la orden v2 con claves acotadas y sin datos de streams', () => {
+    expect(
+      construirArgumentosInspeccionSeguridad('/entrada.pdf', '/informe.json'),
+    ).toEqual([
+      '/entrada.pdf',
+      '--json-output=2',
+      '--json-stream-data=none',
+      '--json-key=pages',
+      '--json-key=acroform',
+      '--json-key=attachments',
+      '--json-key=encrypt',
+      '--json-key=qpdf',
+      '/informe.json',
+    ])
+    expect(VERSION_JSON_QPDF).toBe(2)
+    expect(CLAVES_JSON_INSPECCION).toEqual([
+      'pages',
+      'acroform',
+      'attachments',
+      'encrypt',
+      'qpdf',
+    ])
+  })
+
+  it('acepta éxito limpio y éxito con advertencias', () => {
+    expect(esEjecucionJsonUtilizable(0)).toBe(true)
+    expect(esEjecucionJsonUtilizable(3)).toBe(true)
+    expect(esEjecucionJsonUtilizable(2)).toBe(false)
+    expect(esEjecucionJsonUtilizable(-1)).toBe(false)
+  })
+
+  it('reconoce las respuestas que exigen contraseña', () => {
+    expect(necesitaContrasenaParaInspeccionar(['invalid password'])).toBe(true)
+    expect(necesitaContrasenaParaInspeccionar(['password required'])).toBe(true)
+    expect(necesitaContrasenaParaInspeccionar(['File is encrypted'])).toBe(false)
+  })
+
+  it('valida el límite antes de decodificar y rechaza JSON inválido', () => {
+    expect(
+      leerJsonInspeccion(new TextEncoder().encode('{"version":2}')),
+    ).toEqual({ version: 2 })
+    expect(() => leerJsonInspeccion(new TextEncoder().encode('{'))).toThrow(
+      'no válido',
+    )
+    expect(() =>
+      leerJsonInspeccion(
+        new Uint8Array(TAMANO_MAXIMO_JSON_INSPECCION + 1),
+      ),
+    ).toThrow('demasiado grande')
+  })
+
+  it('rechaza por stat un JSON excesivo antes de llamar a readFile', () => {
+    let intentoLectura = false
+
+    const resultado = leerSalidaJsonInspeccion(
+      {
+        stat: () => ({ size: TAMANO_MAXIMO_JSON_INSPECCION + 1 }),
+        readFile: () => {
+          intentoLectura = true
+          return new Uint8Array()
+        },
+      },
+      '/informe.json',
+    )
+
+    expect(resultado).toEqual({ estado: 'demasiado-grande' })
+    expect(intentoLectura).toBe(false)
+  })
+
+  it('escribe JSON parseable en el sistema virtual y omite los streams', async () => {
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile('/inspeccion.pdf', await crearPdf(2))
+
+    const { codigo } = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/inspeccion.pdf',
+        '/inspeccion.json',
+      ),
+    )
+    const tamanoSalida = instancia.FS.stat('/inspeccion.json').size
+    const salida = leerSiExiste(instancia, '/inspeccion.json')
+
+    expect(codigo).toBe(0)
+    expect(salida).not.toBeNull()
+    expect(tamanoSalida).toBe((salida as Uint8Array).byteLength)
+
+    // `readFile` entrega una copia: el original se puede borrar antes de parsear.
+    instancia.FS.unlink('/inspeccion.json')
+    expect(leerSiExiste(instancia, '/inspeccion.json')).toBeNull()
+
+    const json = leerJsonInspeccion(salida as Uint8Array) as {
+      readonly pages?: readonly unknown[]
+      readonly qpdf?: readonly unknown[]
+    }
+
+    expect(json.pages).toHaveLength(2)
+    expect(json.qpdf).toHaveLength(2)
+    expect(JSON.stringify(json)).not.toContain('"data"')
+  })
+
+  it('el JSON del Inspector no decodifica un stream Flate inválido', async () => {
+    const contenido = await crearPdfConFlujoFlateInvalido()
+    const instanciaJson = await crearInstancia()
+    instanciaJson.FS.writeFile('/flujo-invalido.pdf', contenido)
+
+    const inspeccion = ejecutar(
+      instanciaJson,
+      construirArgumentosInspeccionSeguridad(
+        '/flujo-invalido.pdf',
+        '/flujo-invalido.json',
+      ),
+    )
+
+    expect(inspeccion.codigo).toBe(0)
+    expect(inspeccion.mensajes.join(' ').toLowerCase()).not.toContain('inflate')
+    expect(leerSiExiste(instanciaJson, '/flujo-invalido.json')).not.toBeNull()
+
+    // Esta comparación protege la propiedad que importa: `--check` sí intenta
+    // inflarlo, de modo que no debe volver a formar parte de la ruta del Inspector.
+    const instanciaComprobacion = await crearInstancia()
+    instanciaComprobacion.FS.writeFile('/flujo-invalido.pdf', contenido)
+    const comprobacion = ejecutar(
+      instanciaComprobacion,
+      construirArgumentosComprobacion('/flujo-invalido.pdf'),
+    )
+
+    expect(comprobacion.codigo).toBe(2)
+    expect(comprobacion.mensajes.join(' ').toLowerCase()).toContain('inflate')
+  })
+
+  it('conserva un JSON válido cuando qpdf termina con advertencias', async () => {
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile(
+      '/advertencia.pdf',
+      await crearPdfConAdvertenciaReparable(),
+    )
+
+    const ejecucion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/advertencia.pdf',
+        '/advertencia.json',
+      ),
+    )
+    const salida = leerSiExiste(instancia, '/advertencia.json')
+
+    expect(ejecucion.codigo).toBe(3)
+    expect(esEjecucionJsonUtilizable(ejecucion.codigo)).toBe(true)
+    expect(salida).not.toBeNull()
+
+    const informe = analizarEstructuraQpdf(
+      leerJsonInspeccion(salida as Uint8Array),
+      {
+        numeroPaginas: null,
+        diagnostico: interpretarComprobacion(
+          ejecucion.codigo,
+          ejecucion.mensajes,
+        ),
+      },
+    )
+
+    // La tabla dañada impide que el bloque `pages` sea fiable. La ruta de una sola
+    // pasada informa `null` en vez de ejecutar un segundo comando o inventar el dato.
+    expect(informe.numeroPaginas).toBeNull()
+    expect(informe.estadoEstructura).toBe('con-advertencias')
+  })
+
+  it('preserva los indicadores solicitados y omite datos de streams', async () => {
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile(
+      '/indicadores.pdf',
+      await crearPdfConIndicadoresSeguridad(),
+    )
+
+    const inspeccion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/indicadores.pdf',
+        '/indicadores.json',
+      ),
+    )
+    const salida = leerSiExiste(instancia, '/indicadores.json')
+
+    expect(inspeccion.codigo).toBe(0)
+    expect(salida).not.toBeNull()
+
+    const datos = leerJsonInspeccion(salida as Uint8Array)
+    const texto = JSON.stringify(datos)
+
+    for (const indicador of [
+      '/JavaScript',
+      '/JS',
+      '/OpenAction',
+      '/AA',
+      '/Launch',
+      '/EmbeddedFiles',
+      '/EmbeddedFile',
+      '/SubmitForm',
+      '/URI',
+      '/RichMedia',
+      '/AcroForm',
+      '/XFA',
+    ]) {
+      expect(texto).toContain(`"${indicador}"`)
+    }
+
+    expect(texto).not.toContain('adjunto benigno para una prueba automatizada')
+    expect(texto).not.toContain('"data"')
+
+    const informe = analizarEstructuraQpdf(datos, {
+      numeroPaginas: null,
+      diagnostico: interpretarComprobacion(
+        inspeccion.codigo,
+        inspeccion.mensajes,
+      ),
+    })
+
+    expect(informe.numeroPaginas).toBe(1)
+    expect(informe.nivel).toBe('elevado')
+    expect(informe.hallazgos.map((hallazgo) => hallazgo.tipo)).toEqual(
+      expect.arrayContaining([
+        'javascript',
+        'accion-apertura',
+        'accion-adicional',
+        'launch',
+        'archivo-incrustado',
+        'ejecutable-incrustado',
+        'envio-formulario',
+        'enlace-externo',
+        'contenido-multimedia',
+        'formulario',
+        'xfa',
+      ]),
+    )
+    expect(informe.archivosIncrustados[0]).toMatchObject({
+      nombre: 'ejemplo.exe',
+      extension: '.exe',
+      tipoDeclarado: 'application/octet-stream',
+      aparentaEjecutable: true,
+    })
+  })
+
+  it('no atribuye JavaScript interactivo a una OpenAction de navegación real', async () => {
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile(
+      '/navegacion.pdf',
+      await crearPdfConJavaScriptInteractivoSeparado(),
+    )
+    const inspeccion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/navegacion.pdf',
+        '/navegacion.json',
+      ),
+    )
+    const salida = leerSiExiste(instancia, '/navegacion.json')
+
+    expect(inspeccion.codigo).toBe(0)
+    expect(salida).not.toBeNull()
+
+    const informe = analizarEstructuraQpdf(
+      leerJsonInspeccion(salida as Uint8Array),
+      {
+        numeroPaginas: null,
+        diagnostico: interpretarComprobacion(
+          inspeccion.codigo,
+          inspeccion.mensajes,
+        ),
+      },
+    )
+
+    expect(
+      informe.hallazgos.find(
+        (hallazgo) => hallazgo.tipo === 'accion-apertura',
+      )?.severidad,
+    ).toBe('media')
+    expect(informe.nivel).toBe('precaucion')
+  })
+
+  it('un PDF cifrado sin contraseña no produce un informe parcial', async () => {
+    const { bytes } = await cifrar(
+      await crearPdf(1),
+      'clave-inspector',
+      'dueno-inspector',
+    )
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile('/cifrado.pdf', bytes as Uint8Array)
+
+    const ejecucion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/cifrado.pdf',
+        '/cifrado.json',
+      ),
+    )
+
+    expect(ejecucion.codigo).toBe(2)
+    expect(necesitaContrasenaParaInspeccionar(ejecucion.mensajes)).toBe(true)
+    expect(leerSiExiste(instancia, '/cifrado.json')).toBeNull()
+  })
+
+  it('informa el cifrado que se puede abrir sin contraseña', async () => {
+    const { bytes, ejecucion: cifrado } = await cifrar(
+      await crearPdf(1),
+      '',
+      'dueno-inspector-sin-clave',
+    )
+
+    expect(cifrado.codigo).toBe(0)
+
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile('/cifrado-legible.pdf', bytes as Uint8Array)
+
+    const inspeccion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/cifrado-legible.pdf',
+        '/cifrado-legible.json',
+      ),
+    )
+    const salida = leerSiExiste(instancia, '/cifrado-legible.json')
+
+    expect(inspeccion.codigo).toBe(0)
+    expect(salida).not.toBeNull()
+
+    const informe = analizarEstructuraQpdf(
+      leerJsonInspeccion(salida as Uint8Array),
+      {
+        numeroPaginas: null,
+        diagnostico: interpretarComprobacion(
+          inspeccion.codigo,
+          inspeccion.mensajes,
+        ),
+      },
+    )
+
+    expect(informe.cifrado).toBe(true)
+    expect(informe.numeroPaginas).toBe(1)
+    expect(informe.analisisCompleto).toBe(true)
+  })
+
+  it('un archivo dañado falla sin fabricar un JSON de seguridad', async () => {
+    const instancia = await crearInstancia()
+    instancia.FS.writeFile(
+      '/danado.pdf',
+      new TextEncoder().encode('%PDF-1.4 estructura incompleta'),
+    )
+
+    const ejecucion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        '/danado.pdf',
+        '/danado.json',
+      ),
+    )
+
+    expect(ejecucion.codigo).toBe(2)
+    expect(deducirCodigo(ejecucion.mensajes)).toBe('documento-danado')
+    expect(leerSiExiste(instancia, '/danado.json')).toBeNull()
   })
 })
 
