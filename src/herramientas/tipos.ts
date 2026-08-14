@@ -1,6 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from 'react'
 
-/** Identificador de cada herramienta de las fases 1 y 2. */
+/** Identificador estable de cada herramienta disponible. */
 export type IdHerramienta =
   // Fase 1 — Organización
   | 'unir'
@@ -17,6 +17,7 @@ export type IdHerramienta =
   | 'recortar'
   | 'escanear'
   // Fase 3 — Seguridad y edición
+  | 'inspeccionar-seguridad'
   | 'proteger'
   | 'desbloquear'
   | 'formularios'
