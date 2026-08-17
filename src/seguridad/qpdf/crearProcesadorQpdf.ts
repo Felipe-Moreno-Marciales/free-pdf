@@ -1,6 +1,7 @@
 import { crearErrorQpdf, ErrorQpdf } from './erroresQpdf'
 import type { PerfilCompresion, ResumenCompresion } from './compresionPdf'
 import { URL_WASM_QPDF } from './recursosQpdf'
+import type { InformeSeguridadPdf } from '../inspeccion/tipos'
 import type {
   DiagnosticoPdf,
   NivelReparacion,
@@ -81,6 +82,10 @@ export interface ProcesadorQpdf {
   ) => Promise<InformeCifrado>
   /** Comprueba el estado de un documento, sin modificarlo. */
   readonly diagnosticar: (contenido: Uint8Array) => Promise<DocumentoRevisado>
+  /** Analiza indicadores estructurales de riesgo, sin modificar el documento. */
+  readonly analizarSeguridad: (
+    contenido: Uint8Array,
+  ) => Promise<InformeSeguridadPdf>
   /** Repara un documento dañado y comprueba que el resultado sirva. */
   readonly reparar: (
     contenido: Uint8Array,
@@ -126,17 +131,30 @@ export function crearProcesadorQpdf(): ProcesadorQpdf {
     pendientes.clear()
   }
 
+  /** Invalida un trabajador concreto y todas las operaciones que dependían de él. */
+  const detenerTrabajador = (actual: Worker, error: unknown): boolean => {
+    if (trabajador !== actual) {
+      return false
+    }
+
+    trabajador = null
+    actual.terminate()
+    abortarPendientes(error)
+    return true
+  }
+
   const destruir = (): void => {
     const actual = trabajador
-    trabajador = null
+    const error = crearErrorQpdf('error-interno')
 
-    abortarPendientes(crearErrorQpdf('error-interno'))
-
-    if (actual !== null) {
-      // `terminate` detiene el hilo de inmediato: el WebAssembly, su memoria y su
-      // sistema de archivos virtual desaparecen con él.
-      actual.terminate()
+    if (actual === null) {
+      abortarPendientes(error)
+      return
     }
+
+    // `terminate` detiene el hilo de inmediato: el WebAssembly, su memoria y su
+    // sistema de archivos virtual desaparecen con él.
+    detenerTrabajador(actual, error)
   }
 
   /** Devuelve el trabajador, creándolo la primera vez. */
@@ -171,17 +189,35 @@ export function crearProcesadorQpdf(): ProcesadorQpdf {
       pendientes.delete(respuesta.identificador)
       window.clearTimeout(pendiente.temporizador)
       pendiente.resolver(respuesta)
+
+      if (
+        respuesta.tipo === 'fallo' &&
+        respuesta.codigo === 'motor-no-disponible'
+      ) {
+        detenerTrabajador(
+          creado,
+          new ErrorQpdf(respuesta.codigo, respuesta.mensaje),
+        )
+      }
     })
 
     creado.addEventListener('error', () => {
-      abortarPendientes(crearErrorQpdf('motor-no-disponible'))
+      detenerTrabajador(creado, crearErrorQpdf('motor-no-disponible'))
     })
 
     // El trabajador necesita la dirección del WebAssembly, que solo el hilo
     // principal puede resolver con la ruta base aplicada.
-    creado.postMessage({ tipo: 'preparar', urlWasm: URL_WASM_QPDF })
-
     trabajador = creado
+
+    try {
+      creado.postMessage({ tipo: 'preparar', urlWasm: URL_WASM_QPDF })
+    } catch (error) {
+      detenerTrabajador(
+        creado,
+        crearErrorQpdf('motor-no-disponible', { cause: error }),
+      )
+      throw crearErrorQpdf('motor-no-disponible', { cause: error })
+    }
 
     return creado
   }
@@ -203,13 +239,15 @@ export function crearProcesadorQpdf(): ProcesadorQpdf {
 
     return await new Promise<RespuestaQpdf>((resolver, rechazar) => {
       const temporizador = window.setTimeout(() => {
-        pendientes.delete(identificador)
-        rechazar(
-          new ErrorQpdf(
-            'error-interno',
-            'La operación tardó demasiado y se interrumpió. Prueba con un documento más pequeño.',
-          ),
+        const error = new ErrorQpdf(
+          'error-interno',
+          'La operación tardó demasiado y se interrumpió. Prueba con un documento más pequeño.',
         )
+
+        if (!detenerTrabajador(activo, error)) {
+          pendientes.delete(identificador)
+          rechazar(error)
+        }
       }, TIEMPO_MAXIMO_MS)
 
       pendientes.set(identificador, { resolver, rechazar, temporizador })
@@ -219,7 +257,17 @@ export function crearProcesadorQpdf(): ProcesadorQpdf {
           ? [peticion.contenido.buffer]
           : []
 
-      activo.postMessage(peticion, transferibles)
+      try {
+        activo.postMessage(peticion, transferibles)
+      } catch (error) {
+        const fallo = crearErrorQpdf('motor-no-disponible', { cause: error })
+
+        if (!detenerTrabajador(activo, fallo)) {
+          pendientes.delete(identificador)
+          window.clearTimeout(temporizador)
+          rechazar(fallo)
+        }
+      }
     })
   }
 
@@ -301,6 +349,24 @@ export function crearProcesadorQpdf(): ProcesadorQpdf {
         diagnostico: respuesta.diagnostico,
         numeroPaginas: respuesta.numeroPaginas,
       }
+    },
+
+    analizarSeguridad: async (contenido) => {
+      const respuesta = await enviar((identificador) => ({
+        tipo: 'analizar-seguridad',
+        identificador,
+        contenido,
+      }))
+
+      if (respuesta.tipo === 'fallo') {
+        throw new ErrorQpdf(respuesta.codigo, respuesta.mensaje)
+      }
+
+      if (respuesta.tipo !== 'seguridad-analizada') {
+        throw crearErrorQpdf('error-interno')
+      }
+
+      return respuesta.informe
     },
 
     reparar: async (contenido, nivel) => {
