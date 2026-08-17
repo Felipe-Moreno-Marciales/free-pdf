@@ -1,7 +1,7 @@
 import type { CodigoErrorQpdf } from './tipos'
 
 /**
- * Errores de las operaciones de cifrado y descifrado.
+ * Errores de las operaciones del motor PDF local qpdf.
  *
  * Los mensajes están redactados en español y se pueden mostrar tal cual. **Nunca
  * incluyen la contraseña**, ni la escrita por la persona ni la generada: solo
@@ -33,7 +33,7 @@ const MENSAJES: Readonly<Record<CodigoErrorQpdf, string>> = {
   'reparacion-inutil':
     'No se pudo recuperar ninguna página del documento, así que no se entrega nada: un archivo vacío no sería una reparación.',
   'motor-no-disponible':
-    'No se pudo cargar el motor de cifrado. Comprueba tu conexión y recarga la página.',
+    'No se pudo cargar el motor PDF local. Comprueba tu conexión y recarga la página.',
   'error-interno':
     'No se pudo completar la operación por un error inesperado. Vuelve a intentarlo.',
 }
