@@ -14,7 +14,11 @@ import {
   seEntregaElComprimido,
   type ResumenCompresion,
 } from './compresionPdf'
-import { deducirCodigo, depurarMensaje } from './erroresQpdf'
+import { deducirCodigo } from './erroresQpdf'
+import {
+  crearColaOperacionesQpdf,
+  crearRecolectorMensajesQpdf,
+} from './recolectorMensajesQpdf'
 import {
   construirArgumentosComprobacion,
   construirArgumentosRecuentoPaginas,
@@ -24,6 +28,18 @@ import {
   type DiagnosticoPdf,
   type ResumenReparacion,
 } from './reparacionPdf'
+import {
+  construirArgumentosInspeccionSeguridad,
+  esEjecucionJsonUtilizable,
+  leerJsonInspeccion,
+  leerSalidaJsonInspeccion,
+  necesitaContrasenaParaInspeccionar,
+} from './inspeccionSeguridadPdf'
+import {
+  analizarEstructuraQpdf,
+  ErrorInspeccionSeguridad,
+} from '../inspeccion/analizarEstructura'
+import type { InformeSeguridadPdf } from '../inspeccion/tipos'
 import type {
   CodigoErrorQpdf,
   InformeCifrado,
@@ -53,8 +69,11 @@ import type {
  * que se sirve desde el mismo origen y no contiene ningún dato de la persona.
  */
 
-/** Mensajes que qpdf ha escrito durante la operación en curso. */
-let mensajesRecogidos: string[] = []
+/** Salida de qpdf acotada para que un PDF hostil no infle la memoria. */
+const recolectorMensajes = crearRecolectorMensajesQpdf()
+
+/** Una sola operación puede usar qpdf y la consola interceptada cada vez. */
+const colaOperaciones = crearColaOperacionesQpdf()
 
 /**
  * Instala la interceptación de la consola.
@@ -65,7 +84,7 @@ let mensajesRecogidos: string[] = []
  */
 function interceptarConsola(): void {
   const recoger = (...partes: readonly unknown[]): void => {
-    mensajesRecogidos.push(partes.map((parte) => String(parte)).join(' '))
+    recolectorMensajes.recoger(...partes)
   }
 
   console.log = recoger
@@ -81,6 +100,7 @@ interceptarConsola()
 interface SistemaArchivosVirtual {
   readonly writeFile: (ruta: string, datos: Uint8Array) => void
   readonly readFile: (ruta: string) => Uint8Array
+  readonly stat: (ruta: string) => { readonly size: number }
   readonly unlink: (ruta: string) => void
 }
 
@@ -98,6 +118,14 @@ interface OpcionesModulo {
 
 /** Fábrica que expone el paquete de qpdf. */
 type FabricaQpdf = (opciones: OpcionesModulo) => Promise<InstanciaQpdf>
+
+/** Señala que el módulo o su WebAssembly no pudieron inicializarse. */
+class ErrorMotorQpdfNoDisponible extends Error {
+  constructor() {
+    super('El motor qpdf no pudo inicializarse.')
+    this.name = 'ErrorMotorQpdfNoDisponible'
+  }
+}
 
 /** Fábrica ya cargada, para no volver a descargar el módulo. */
 let fabricaEnMemoria: FabricaQpdf | null = null
@@ -134,9 +162,13 @@ async function obtenerFabrica(): Promise<FabricaQpdf> {
 
 /** Crea una instancia nueva del motor, con su sistema de archivos vacío. */
 async function crearInstancia(): Promise<InstanciaQpdf> {
-  const fabrica = await obtenerFabrica()
+  try {
+    const fabrica = await obtenerFabrica()
 
-  return await fabrica({ locateFile: () => urlWasm, noInitialRun: true })
+    return await fabrica({ locateFile: () => urlWasm, noInitialRun: true })
+  } catch {
+    throw new ErrorMotorQpdfNoDisponible()
+  }
 }
 
 /** Resultado de ejecutar qpdf una vez. */
@@ -161,7 +193,7 @@ function ejecutar(
   argumentos: readonly string[],
   secretos: readonly string[],
 ): Ejecucion {
-  mensajesRecogidos = []
+  recolectorMensajes.reiniciar(secretos)
 
   let codigo: number
 
@@ -169,14 +201,10 @@ function ejecutar(
     codigo = instancia.callMain([...argumentos])
   } catch (error) {
     const estado = (error as { readonly status?: unknown } | null)?.status
-
     codigo = typeof estado === 'number' ? estado : -1
   }
 
-  const mensajes = mensajesRecogidos.map((mensaje) =>
-    depurarMensaje(mensaje, secretos),
-  )
-  mensajesRecogidos = []
+  const mensajes = recolectorMensajes.vaciar()
 
   return { codigo, mensajes }
 }
@@ -185,6 +213,7 @@ function ejecutar(
 const RUTA_ENTRADA = '/entrada.pdf'
 const RUTA_SALIDA = '/salida.pdf'
 const RUTA_CONTRASENA = '/clave'
+const RUTA_JSON_SEGURIDAD = '/inspeccion-seguridad.json'
 
 /**
  * Borra del sistema virtual las rutas indicadas.
@@ -561,6 +590,125 @@ async function atenderDiagnosticar(
 }
 
 /**
+ * Inspecciona indicadores estructurales de riesgo sin abrir ningún contenido.
+ *
+ * qpdf serializa los diccionarios del documento en JSON, omitiendo expresamente
+ * los datos de todos los streams. El JSON nunca abandona este trabajador: se
+ * valida, se convierte en un informe acotado y se borra junto con el PDF en el
+ * `finally`.
+ */
+async function atenderAnalizarSeguridad(
+  peticion: Extract<PeticionQpdf, { tipo: 'analizar-seguridad' }>,
+): Promise<void> {
+  const instancia = await crearInstancia()
+
+  try {
+    instancia.FS.writeFile(RUTA_ENTRADA, peticion.contenido)
+
+    const inspeccion = ejecutar(
+      instancia,
+      construirArgumentosInspeccionSeguridad(
+        RUTA_ENTRADA,
+        RUTA_JSON_SEGURIDAD,
+      ),
+      [],
+    )
+
+    if (necesitaContrasenaParaInspeccionar(inspeccion.mensajes)) {
+      responderFallo(
+        peticion.identificador,
+        'ya-esta-cifrado',
+        'El Inspector de seguridad no puede analizar un PDF protegido sin contraseña. Desbloquéalo primero con «Desbloquear PDF» y vuelve a intentarlo.',
+      )
+      return
+    }
+
+    if (!esEjecucionJsonUtilizable(inspeccion.codigo)) {
+      const codigo = deducirCodigo(inspeccion.mensajes)
+
+      responderFallo(
+        peticion.identificador,
+        codigo === 'contrasena-incorrecta' ? 'ya-esta-cifrado' : codigo,
+        codigo === 'documento-danado'
+          ? 'El documento está dañado o incompleto y no se pudo inspeccionar su estructura de forma fiable.'
+          : 'No se pudo inspeccionar la estructura del PDF de forma fiable.',
+      )
+      return
+    }
+
+    const salidaJson = leerSalidaJsonInspeccion(
+      instancia.FS,
+      RUTA_JSON_SEGURIDAD,
+    )
+
+    if (salidaJson.estado === 'demasiado-grande') {
+      responderFallo(
+        peticion.identificador,
+        'error-interno',
+        'La estructura del PDF es demasiado grande para inspeccionarla de forma segura. Prueba con un documento más pequeño.',
+      )
+      return
+    }
+
+    if (salidaJson.estado === 'ausente') {
+      responderFallo(
+        peticion.identificador,
+        'error-interno',
+        'No se pudo leer la estructura generada por el motor PDF local.',
+      )
+      return
+    }
+
+    // `readFile` devuelve una copia independiente. Se elimina el original antes
+    // de decodificar y parsear para no conservar simultáneamente ambas versiones.
+    limpiarArchivos(instancia, [RUTA_JSON_SEGURIDAD])
+    const json = salidaJson.contenido
+
+    const diagnostico = interpretarComprobacion(
+      inspeccion.codigo,
+      inspeccion.mensajes,
+    )
+
+    let informe: InformeSeguridadPdf
+
+    try {
+      informe = analizarEstructuraQpdf(leerJsonInspeccion(json), {
+        // El bloque `pages` del mismo JSON es la única fuente del recuento para
+        // esta herramienta. Así no se vuelve a recorrer el PDF con qpdf.
+        numeroPaginas: null,
+        diagnostico,
+      })
+    } catch (error) {
+      const codigoError: CodigoErrorQpdf =
+        error instanceof ErrorInspeccionSeguridad &&
+        error.motivo === 'documento-cifrado'
+          ? 'ya-esta-cifrado'
+          : error instanceof ErrorInspeccionSeguridad &&
+              error.motivo === 'estructura-no-inspeccionable'
+            ? 'documento-danado'
+            : 'error-interno'
+
+      responderFallo(
+        peticion.identificador,
+        codigoError,
+        error instanceof ErrorInspeccionSeguridad
+          ? error.message
+          : 'No se pudo interpretar la estructura del PDF de forma segura. El archivo puede estar dañado, incompleto o usar una estructura no compatible.',
+      )
+      return
+    }
+
+    responder({
+      tipo: 'seguridad-analizada',
+      identificador: peticion.identificador,
+      informe,
+    })
+  } finally {
+    limpiarArchivos(instancia, [RUTA_ENTRADA, RUTA_JSON_SEGURIDAD])
+  }
+}
+
+/**
  * Cuenta las páginas del documento que ya está escrito en la entrada.
  *
  * Devuelve `null` si no se puede contar, que es lo que ocurre con un archivo
@@ -892,6 +1040,9 @@ self.addEventListener('message', (evento: MessageEvent<unknown>) => {
         case 'diagnosticar':
           await atenderDiagnosticar(peticion)
           return
+        case 'analizar-seguridad':
+          await atenderAnalizarSeguridad(peticion)
+          return
         case 'reparar':
           await atenderReparar(peticion)
           return
@@ -902,16 +1053,21 @@ self.addEventListener('message', (evento: MessageEvent<unknown>) => {
           return
       }
     } catch (error) {
-      // El mensaje del error interno se descarta a propósito: podría venir de
-      // cualquier capa y no se quiere arriesgar a publicar nada inesperado.
-      void error
+      const motorNoDisponible = error instanceof ErrorMotorQpdfNoDisponible
+
+      // El mensaje original se descarta a propósito: podría venir de cualquier
+      // capa y no se quiere arriesgar a publicar nada inesperado.
       responderFallo(
         peticion.identificador,
-        'error-interno',
-        'No se pudo completar la operación por un error inesperado. Vuelve a intentarlo.',
+        motorNoDisponible ? 'motor-no-disponible' : 'error-interno',
+        motorNoDisponible
+          ? 'No se pudo cargar el motor PDF local. Comprueba tu conexión y recarga la página.'
+          : 'No se pudo completar la operación por un error inesperado. Vuelve a intentarlo.',
       )
     }
   }
 
-  void atender()
+  // Las instancias tienen MEMFS independiente, pero comparten el recolector de la
+  // consola. Serializar evita que una petición reinicie la salida de otra.
+  void colaOperaciones.encolar(atender).catch(() => undefined)
 })
