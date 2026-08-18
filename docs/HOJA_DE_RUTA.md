@@ -150,6 +150,19 @@ Las seis herramientas están implementadas, cubiertas por pruebas automatizadas 
 
 ### Detalle de las herramientas terminadas
 
+#### Inspector de seguridad PDF
+
+- **Estado:** terminada y verificada con el motor real.
+- **Procesamiento local:** completo. qpdf 12.2.0 compilado a WebAssembly, en el mismo Web Worker que el resto de las operaciones de qpdf.
+- **Método:** se pide a qpdf una representación JSON de los objetos del documento con `--json-output=2` y `--json-stream-data=none`, limitada a las claves `pages`, `acroform`, `attachments`, `encrypt` y `qpdf`. **Los datos de los flujos se omiten en la propia orden**, así que el JavaScript, las imágenes y los adjuntos nunca se materializan. El JSON se escribe en el sistema de archivos virtual, se mide con `stat` antes de copiarlo y se descarta si supera los 16 MiB.
+- **Análisis:** el JSON se trata como **entrada no confiable**. El recorrido es iterativo, compara nombres de claves y valores PDF exactos, y no ejecuta ni interpreta contenido activo.
+- **Qué señala:** JavaScript (`/JavaScript` y el árbol de nombres), acción de apertura (`/OpenAction`), acciones adicionales (`/AA`), apertura de programas o recursos (`/Launch`), envío de formularios (`/SubmitForm`), enlaces externos (`/URI`), contenido multimedia interactivo (`/RichMedia`), formulario interactivo (`/AcroForm`), formulario dinámico (`/XFA`), archivos adjuntos (`/Filespec` con `/EF`), adjuntos con extensión de ejecutable o script, e irregularidades estructurales detectadas por el diagnóstico de qpdf.
+- **Clasificación:** cuatro niveles descriptivos —sin indicios, bajo, precaución y elevado— por la característica **más sensible** encontrada. Es una regla categórica y comprobable, no una puntuación que sugiera una certeza inexistente. Una acción de apertura o una acción adicional que resuelve a JavaScript sube a severidad alta; un enlace externo aislado no.
+- **Límites defensivos:** 80 niveles de profundidad, 100 000 nodos, 32 768 caracteres por cadena, 12 contextos por hallazgo, 1 000 adjuntos y 20 advertencias técnicas. Al superarse, se explica el motivo en lugar de entregar un informe parcial como si fuera completo.
+- **Lo que no hace, y es deliberado:** no evalúa JavaScript, no ejecuta acciones, no abre enlaces, no extrae ni abre adjuntos y **no devuelve el contenido de los scripts ni los destinos de los enlaces**. Los detalles técnicos contienen rutas y referencias del JSON, no el contenido activo encontrado.
+- **Documentos cifrados:** si qpdf no puede leer la estructura sin contraseña, no se pide la clave ni se presenta un resultado parcial como definitivo: se indica que primero debe usarse «Desbloquear PDF».
+- **Limitaciones:** es un **análisis estructural, no un antivirus**. No detecta vulnerabilidades del lector ni contenido oculto fuera de la estructura interpretada, y no puede afirmar que un archivo sea seguro. La presencia de una característica tampoco significa que el documento sea malicioso.
+
 #### Proteger PDF
 
 - **Estado:** terminada y verificada con el motor real.
@@ -218,7 +231,7 @@ Las seis herramientas están implementadas, cubiertas por pruebas automatizadas 
 
 ### Documentación técnica
 
-- [SEGURIDAD.md](SEGURIDAD.md): modelo de amenazas, limpieza de recursos y reporte de vulnerabilidades.
+- [SEGURIDAD.md](SEGURIDAD.md): modelo de amenazas, alcance y límites del inspector estructural, limpieza de recursos y reporte de vulnerabilidades.
 - [CIFRADO.md](CIFRADO.md): auditoría de qpdf, AES-256, contraseñas y verificación.
 - [CENSURA.md](CENSURA.md): por qué una caja negra no basta, reconstrucción por rasterizado, qué demuestra la verificación y qué no.
 - [EDICION.md](EDICION.md): el editor visual compartido, y las dos advertencias que no se pueden quitar.
