@@ -68,8 +68,9 @@ esa representación como entrada no confiable y busca las claves y relaciones
 relevantes.
 
 El informe señala JavaScript, acciones al abrir o adicionales, acciones
-`/Launch`, envíos de formularios, enlaces externos, RichMedia, AcroForm, XFA y
-archivos incrustados. Cuando qpdf facilita sus metadatos, también muestra el
+`/Launch`, envíos de formularios, enlaces externos, RichMedia, AcroForm, XFA,
+archivos incrustados e irregularidades estructurales detectadas por el
+diagnóstico de qpdf. Cuando qpdf facilita sus metadatos, también muestra el
 nombre, la extensión y el tipo declarado del adjunto, y destaca extensiones que
 parecen ejecutables o scripts. Una extensión o una característica estructural
 **no demuestra por sí sola que el documento sea malicioso**.
