@@ -10,13 +10,13 @@ el service worker ni en la caché.
 La compilación genera un `service-worker.js` versionado que prepara para uso sin
 conexión todos los archivos estáticos de la aplicación:
 
-- la interfaz y los 23 módulos cargados de forma diferida;
+- la interfaz y los 24 módulos cargados de forma diferida;
 - qpdf y su trabajador;
 - PDF.js, sus CMaps, tipografías, perfiles de color y WebAssembly;
 - Tesseract.js y los modelos locales de español e inglés;
 - el manifiesto y los iconos de instalación.
 
-La compilación actual incluye 283 recursos y aproximadamente 23 MiB. El navegador
+La compilación actual incluye 285 recursos y aproximadamente 23 MiB. El navegador
 los guarda en `Cache Storage` después de la primera visita en producción. Esa
 caché contiene código y recursos idénticos para todo el mundo; **no contiene PDF,
 imágenes, contraseñas, resultados ni preferencias**.

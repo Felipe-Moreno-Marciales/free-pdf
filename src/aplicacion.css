@@ -3206,6 +3206,192 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Inspector de seguridad PDF
+   --------------------------------------------------------------------------- */
+
+.informe-seguridad {
+  --color-nivel-informe: var(--color-primario);
+  --fondo-nivel-informe: var(--color-primario-suave);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+  padding: var(--espacio-4);
+  background-color: var(--color-superficie);
+  border: var(--grosor-borde) solid var(--color-borde);
+  border-radius: var(--radio-medio);
+}
+
+.informe-seguridad[data-nivel='sin-indicios'] {
+  --color-nivel-informe: var(--color-exito);
+  --fondo-nivel-informe: var(--color-exito-suave);
+}
+
+.informe-seguridad[data-nivel='precaucion'] {
+  --color-nivel-informe: var(--color-aviso);
+  --fondo-nivel-informe: var(--color-aviso-suave);
+}
+
+.informe-seguridad[data-nivel='elevado'] {
+  --color-nivel-informe: var(--color-peligro);
+  --fondo-nivel-informe: var(--color-peligro-suave);
+}
+
+.informe-seguridad__titulo {
+  font-size: 1.125rem;
+}
+
+.informe-seguridad__nivel {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: flex-start;
+  padding: var(--espacio-4);
+  color: var(--color-texto);
+  background-color: var(--fondo-nivel-informe);
+  border: var(--grosor-borde) solid var(--color-nivel-informe);
+  border-radius: var(--radio-medio);
+}
+
+.informe-seguridad__icono {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+  color: var(--color-nivel-informe);
+}
+
+.informe-seguridad__nivel-titulo {
+  font-weight: 700;
+}
+
+.informe-seguridad__explicacion {
+  color: var(--color-texto-suave);
+}
+
+.informe-seguridad__nivel .informe-seguridad__explicacion {
+  color: inherit;
+}
+
+.informe-seguridad__hallazgos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-3);
+}
+
+.informe-seguridad__subtitulo {
+  font-size: 1rem;
+}
+
+.informe-seguridad__sin-hallazgos {
+  padding: var(--espacio-3) var(--espacio-4);
+  color: var(--color-exito);
+  background-color: var(--color-exito-suave);
+  border-radius: var(--radio-pequeno);
+}
+
+.lista-hallazgos-seguridad {
+  display: grid;
+  gap: var(--espacio-3);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hallazgo-seguridad {
+  --color-hallazgo: var(--color-primario);
+  --fondo-hallazgo: var(--color-primario-suave);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+  padding: var(--espacio-3) var(--espacio-4);
+  background-color: var(--fondo-hallazgo);
+  border-left: 3px solid var(--color-hallazgo);
+  border-radius: var(--radio-pequeno);
+}
+
+.hallazgo-seguridad[data-severidad='media'] {
+  --color-hallazgo: var(--color-aviso);
+  --fondo-hallazgo: var(--color-aviso-suave);
+}
+
+.hallazgo-seguridad[data-severidad='alta'] {
+  --color-hallazgo: var(--color-peligro);
+  --fondo-hallazgo: var(--color-peligro-suave);
+}
+
+.hallazgo-seguridad__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2) var(--espacio-3);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.hallazgo-seguridad__titulo {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.hallazgo-seguridad__cantidad,
+.hallazgo-seguridad__severidad {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-texto);
+}
+
+.hallazgo-seguridad__descripcion {
+  font-size: 0.9375rem;
+}
+
+.detalles-inspeccion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+}
+
+.detalles-inspeccion__elemento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-1) var(--espacio-3);
+  padding-bottom: var(--espacio-2);
+  font-size: 0.875rem;
+  border-bottom: var(--grosor-borde) solid var(--color-borde);
+}
+
+.detalles-inspeccion__elemento > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detalles-inspeccion__elemento code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.detalles-inspeccion__elemento:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detalles-inspeccion__tipo {
+  font-weight: 700;
+  color: var(--color-texto);
+}
+
+.informe-seguridad__limitacion {
+  padding: var(--espacio-3) var(--espacio-4);
+  font-size: 0.875rem;
+  color: var(--color-texto-suave);
+  background-color: var(--color-superficie-suave);
+  border-radius: var(--radio-pequeno);
+}
+
+@media (min-width: 48rem) {
+  .lista-hallazgos-seguridad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Comparación de tamaños: «Comprimir PDF»
    --------------------------------------------------------------------------- */
 

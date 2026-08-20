@@ -48,13 +48,19 @@ Es una petición **del mismo origen** que no contiene ningún dato: es el motor,
 
 ### Los módulos de Node no se usan en el navegador
 
-Al compilar, Vite avisa de que el pegamento de qpdf importa `fs`, `path` y `crypto`. Se revisó el código y esas importaciones están **protegidas en tiempo de ejecución**:
+El pegamento de qpdf importa `fs`, `path` y `crypto` para poder ejecutarse
+también en Node. Se revisó el código y esas importaciones están **protegidas en
+tiempo de ejecución**:
 
 ```js
 if (fa) { var fs = require("fs"); require("path"); … }
 ```
 
-`fa` es la detección de Node —comprueba `process.versions.node`—, así que en el navegador vale `false` y esas rutas nunca se ejecutan. Vite las sustituye por stubs que jamás se llegan a llamar.
+`fa` es la detección de Node —comprueba `process.versions.node`—, así que en el
+navegador vale `false` y esas rutas nunca se ejecutan. El complemento
+`resolve.alias` de `vite.config.ts` las dirige de forma explícita a un módulo
+vacío. De este modo no se incorporan implementaciones de Node al sitio ni se
+emiten advertencias engañosas durante la compilación.
 
 El caso de `crypto` es el más interesante, porque revela de dónde sale la aleatoriedad:
 
@@ -169,7 +175,11 @@ Eso ocurre **dentro del trabajador**, en memoria. Las medidas que lo acompañan:
 
 - Los argumentos no se registran nunca, ni completos ni en parte.
 - La consola se intercepta **antes** de evaluar el módulo de qpdf (ver más abajo), así que nada de lo que escriba llega a la consola del navegador.
-- Los mensajes se depuran con `depurarMensaje` antes de salir del trabajador, sustituyendo cualquier aparición de una contraseña por `«contraseña oculta»`. Es una red de seguridad: se comprobó que qpdf no las imprime, pero se depura de todos modos por si una versión futura cambiara.
+- Los mensajes se recogen con un presupuesto fijo y se redactan antes de salir
+  del trabajador. El marcador se elige de forma que no pueda contener ninguna
+  de las contraseñas de la operación. Es una red de seguridad: se comprobó que
+  qpdf no las imprime, pero se depura de todos modos por si una versión futura
+  cambiara.
 
 ### La interceptación de la consola
 

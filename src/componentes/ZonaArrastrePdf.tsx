@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { ATRIBUTO_ACCEPT_PDF } from '../utilidades/validacionArchivos'
 import { ZonaArrastreArchivos } from './ZonaArrastreArchivos'
 
@@ -14,6 +15,8 @@ interface PropiedadesZonaArrastrePdf {
   readonly ayuda?: string
   /** Nombre accesible del selector de archivos. */
   readonly nombreAccesible?: string
+  /** Referencia opcional al selector nativo para restaurar el foco. */
+  readonly referenciaCampo?: Ref<HTMLInputElement>
 }
 
 /**
@@ -33,6 +36,7 @@ export function ZonaArrastrePdf({
   titulo = 'Arrastra tus archivos PDF o pulsa para seleccionarlos',
   ayuda = 'Puedes elegir varios a la vez y añadir más después. Solo se aceptan archivos con extensión .pdf.',
   nombreAccesible = 'Seleccionar archivos PDF',
+  referenciaCampo,
 }: PropiedadesZonaArrastrePdf) {
   return (
     <ZonaArrastreArchivos
@@ -43,6 +47,7 @@ export function ZonaArrastrePdf({
       titulo={titulo}
       ayuda={ayuda}
       nombreAccesible={nombreAccesible}
+      referenciaCampo={referenciaCampo}
     />
   )
 }

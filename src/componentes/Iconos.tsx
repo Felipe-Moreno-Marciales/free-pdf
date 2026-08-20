@@ -78,13 +78,14 @@ export function IconoExtraer({ className }: PropiedadesIcono) {
   )
 }
 
-/** Documento con un signo menos: eliminar páginas. */
+/** Documento con un aspa: eliminar páginas. */
 export function IconoEliminarPaginas({ className }: PropiedadesIcono) {
   return (
     <IconoTrazo className={className}>
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
       <path d="M14 3v5h5" />
-      <path d="M9 15h6" />
+      <path d="M10 13l4 4" />
+      <path d="M14 13l-4 4" />
     </IconoTrazo>
   )
 }
@@ -320,6 +321,24 @@ export function IconoEscudo({ className }: PropiedadesIcono) {
     <IconoTrazo className={className}>
       <path d="M12 3l7 3v6c0 4.5-3 7.9-7 9-4-1.1-7-4.5-7-9V6l7-3Z" />
       <path d="M9.5 12.4l1.8 1.8 3.4-3.6" />
+    </IconoTrazo>
+  )
+}
+
+/**
+ * Escudo con lupa: inspeccionar características sensibles sin ejecutarlas.
+ *
+ * Reutiliza el contorno cerrado de `IconoEscudo`, así que ocupa exactamente el
+ * mismo lienzo que el resto de la categoría de seguridad. La lupa va dentro del
+ * escudo: el trazo más externo queda a 4 unidades del borde del `viewBox`, con
+ * holgura de sobra para el `scale(1.15)` que la tarjeta aplica al icono.
+ */
+export function IconoInspeccionarSeguridad({ className }: PropiedadesIcono) {
+  return (
+    <IconoTrazo className={className}>
+      <path d="M12 3l7 3v6c0 4.5-3 7.9-7 9-4-1.1-7-4.5-7-9V6l7-3Z" />
+      <circle cx="11.5" cy="10.5" r="2.85" />
+      <path d="m13.5 12.5 2.1 2.1" />
     </IconoTrazo>
   )
 }

@@ -113,6 +113,11 @@ describe('catálogo de herramientas', () => {
     expect(seccion).not.toBeNull()
     expect(
       within(seccion as HTMLElement).getByRole('button', {
+        name: 'Abrir la herramienta Inspector de seguridad PDF',
+      }),
+    ).toBeDefined()
+    expect(
+      within(seccion as HTMLElement).getByRole('button', {
         name: 'Abrir la herramienta Proteger PDF',
       }),
     ).toBeDefined()

@@ -7,12 +7,13 @@ import type {
   NivelReparacion,
   ResumenReparacion,
 } from './reparacionPdf'
+import type { InformeSeguridadPdf } from '../inspeccion/tipos'
 
 /**
  * Tipos de la integración con qpdf compilado a WebAssembly.
  *
- * qpdf es el motor que cifra y descifra documentos. pdf-lib no sabe hacerlo, así
- * que no se intenta: usar `ignoreEncryption` no descifra nada y produciría
+ * qpdf es el motor que inspecciona, cifra, descifra, repara y optimiza documentos.
+ * pdf-lib no sabe descifrar: usar `ignoreEncryption` no descifra nada y produciría
  * documentos inválidos.
  */
 
@@ -108,6 +109,11 @@ export type PeticionQpdf =
       readonly contenido: Uint8Array
     }
   | {
+      readonly tipo: 'analizar-seguridad'
+      readonly identificador: number
+      readonly contenido: Uint8Array
+    }
+  | {
       readonly tipo: 'reparar'
       readonly identificador: number
       readonly contenido: Uint8Array
@@ -137,6 +143,11 @@ export type RespuestaQpdf =
       readonly identificador: number
       readonly diagnostico: DiagnosticoPdf
       readonly numeroPaginas: number | null
+    }
+  | {
+      readonly tipo: 'seguridad-analizada'
+      readonly identificador: number
+      readonly informe: InformeSeguridadPdf
     }
   | {
       readonly tipo: 'reparado'

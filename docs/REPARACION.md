@@ -65,9 +65,13 @@ No se usa `--replace-input`, que sobrescribiría la entrada. Aquí se trabaja so
 
 Reparar **no cifra ni descifra nada**. Hay una prueba con el motor real que confirma que el documento reparado sigue abriéndose sin contraseña.
 
-### Los mensajes de qpdf se muestran sin traducir
+### Los mensajes técnicos de qpdf no se traducen
 
-Cuando hay hallazgos, se muestran tal y como qpdf los escribe: `xref stream, offset 999: expected n n obj`. Es texto técnico en inglés, y es deliberado.
+Cuando hay hallazgos, se conserva una muestra acotada del texto técnico de
+qpdf en inglés, sin traducirlo. Cada línea tiene un límite y, si qpdf produce
+demasiadas, se preservan las primeras y las últimas con un resumen de las
+omitidas. El recolector también redacta cualquier secreto antes de exponer la
+salida.
 
 Traducirlo perdería precisión y haría imposible buscar el mensaje en la documentación de qpdf o en un foro. Lo que sí está en español es la **clasificación** de cada hallazgo —referencias cruzadas, objeto dañado, flujo dañado, árbol de páginas, cifrado, estructura— para poder entender de qué va sin leer el detalle.
 

@@ -136,7 +136,9 @@ Recortar es una operación de presentación. Censurar es una operación de segur
 
 ## Limitaciones conocidas
 
-- **No hay búsqueda de texto todavía.** Las zonas se marcan a mano. La búsqueda por texto —encontrar todas las apariciones de una palabra y proponer zonas— está prevista pero no implementada. Ver [PROGRESO_AUTONOMO.md](PROGRESO_AUTONOMO.md).
+- **No hay búsqueda automática de texto.** Las zonas se marcan a mano. Encontrar
+  todas las apariciones de una palabra y proponer zonas no forma parte del alcance
+  actual. Ver [PROGRESO_AUTONOMO.md](PROGRESO_AUTONOMO.md).
 - **No hay detección automática de datos sensibles.** No se buscan DNI, números de tarjeta ni nombres.
 - **No hay OCR.** Si el documento ya es un escaneado sin capa de texto, la censura funciona igual —se rasteriza y se tapa—, pero no se puede buscar texto porque no hay ninguno.
 - **Las zonas se ajustan con campos numéricos**, en porcentaje, no arrastrando. Es deliberado: unos controles numéricos funcionan con el teclado y con lector de pantalla, y en una herramienta de seguridad conviene poder indicar una medida exacta. La vista previa muestra el resultado en cuanto se cambia un valor.
