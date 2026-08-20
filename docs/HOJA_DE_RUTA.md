@@ -146,7 +146,10 @@ Las seis herramientas están implementadas, cubiertas por pruebas automatizadas 
 | Editar y anotar | Terminada | Media | Navegador | `pdfjs-dist`, `pdf-lib` | Añade una capa encima: **no modifica el texto original**, porque eso exigiría rehacer tipografía, interletraje y reflujo. Solo caracteres latinos, por usar las tipografías estándar del PDF. Todavía no se pueden incrustar imágenes desde la interfaz. |
 | Firma visual | Terminada | Media | Navegador | `pdf-lib` | **No es una firma digital**: no usa certificados, no prueba identidad y no detecta modificaciones posteriores. La firma con certificado queda fuera del alcance del proyecto. La firma no se guarda en ningún sitio. |
 
-**Siguiente bloque:** «Reparar PDF», que aprovecha la infraestructura de qpdf ya construida. El plan detallado está en [PROGRESO_AUTONOMO.md](PROGRESO_AUTONOMO.md).
+La fase está cerrada. La infraestructura de qpdf también se reutiliza en
+«Reparar PDF» y «Comprimir PDF», terminadas en la fase 4. El estado completo y
+las decisiones de alcance se mantienen en
+[PROGRESO_AUTONOMO.md](PROGRESO_AUTONOMO.md).
 
 ### Detalle de las herramientas terminadas
 
