@@ -48,13 +48,19 @@ Es una petición **del mismo origen** que no contiene ningún dato: es el motor,
 
 ### Los módulos de Node no se usan en el navegador
 
-Al compilar, Vite avisa de que el pegamento de qpdf importa `fs`, `path` y `crypto`. Se revisó el código y esas importaciones están **protegidas en tiempo de ejecución**:
+El pegamento de qpdf importa `fs`, `path` y `crypto` para poder ejecutarse
+también en Node. Se revisó el código y esas importaciones están **protegidas en
+tiempo de ejecución**:
 
 ```js
 if (fa) { var fs = require("fs"); require("path"); … }
 ```
 
-`fa` es la detección de Node —comprueba `process.versions.node`—, así que en el navegador vale `false` y esas rutas nunca se ejecutan. Vite las sustituye por stubs que jamás se llegan a llamar.
+`fa` es la detección de Node —comprueba `process.versions.node`—, así que en el
+navegador vale `false` y esas rutas nunca se ejecutan. El complemento
+`resolve.alias` de `vite.config.ts` las dirige de forma explícita a un módulo
+vacío. De este modo no se incorporan implementaciones de Node al sitio ni se
+emiten advertencias engañosas durante la compilación.
 
 El caso de `crypto` es el más interesante, porque revela de dónde sale la aleatoriedad:
 
