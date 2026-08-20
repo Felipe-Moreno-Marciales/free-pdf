@@ -98,7 +98,11 @@ un antivirus y no puede garantizar la ausencia de malware.**
 
 ## Firma visual
 
-*Pendiente de implementación.* Cuando exista, la distinción será explícita: una firma dibujada, escrita o importada es una **imagen colocada en el documento**. No es una firma digital: no incluye certificado, no valida la identidad de nadie, no lleva sello de tiempo y no detecta si el documento se modificó después. Sirve para lo mismo que firmar un papel con bolígrafo, ni más ni menos.
+La herramienta permite dibujar o escribir una firma y colocarla visualmente en
+las páginas elegidas. El resultado es una **marca gráfica dentro del documento**:
+no es una firma digital, no incluye certificado, no valida la identidad de nadie,
+no lleva sello de tiempo y no detecta modificaciones posteriores. La firma solo
+permanece en memoria durante la operación y no se guarda en el navegador.
 
 ## Limpieza de recursos
 
@@ -126,7 +130,11 @@ Si una comprobación falla, no se descarga nada.
 
 **El recorte no elimina el contenido oculto.** «Recortar PDF» ajusta la caja de recorte del formato PDF: el contenido que queda fuera sigue dentro del archivo y se puede recuperar. Es una herramienta para ajustar encuadres, **no para ocultar información confidencial**. La interfaz lo advierte.
 
-Eliminar contenido de verdad requiere reconstruir el documento, y corresponde a la herramienta de censura permanente, todavía no implementada.
+Eliminar contenido de verdad requiere reconstruir el documento. La herramienta
+«Censurar permanentemente» representa todas las páginas como píxeles, aplica las
+zonas marcadas y crea un PDF nuevo sin reutilizar el contenido original. Como
+contrapartida, se pierde el texto seleccionable, los enlaces, los formularios y
+la estructura de accesibilidad.
 
 ## Dependencias
 
