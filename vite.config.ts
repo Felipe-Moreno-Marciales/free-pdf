@@ -6,7 +6,7 @@ import { recursosOcr } from './compilacion/recursosOcr.ts'
 import { recursosPdfJs } from './compilacion/recursosPdfJs.ts'
 
 const MODULO_NODE_NO_DISPONIBLE = fileURLToPath(
-  new URL('./compilacion/moduloNodeNoDisponible.ts', import.meta.url),
+  new URL('./compilacion/moduloNodeVacio.ts', import.meta.url),
 )
 
 export default defineConfig({
