@@ -66,6 +66,24 @@ El precio es real: solo cubren el alfabeto latino con codificación WinAnsi. Un 
 
 Cada tipografía se incrusta **una sola vez** por documento. Sin esa caché, cincuenta textos incrustarían cincuenta copias de Helvetica.
 
+### Deshacer y rehacer
+
+La capa **no se guarda en ningún sitio**: vive en memoria y desaparece al recargar. Por eso lleva historial. Sin él, «Quitar todo» o un arrastre a destiempo destruyen una sesión entera de correcciones sin manera de recuperarla, y eso no es una incomodidad, es pérdida de datos.
+
+El modelo está en [`historial.ts`](../src/edicion/historial.ts) y es puro, sin React ni navegador, para poder probarlo entero. Un historial roto se descubre tarde y mal —cuando alguien ya ha perdido el trabajo—, y esa clase de error se caza mucho mejor con pruebas que mirando la interfaz.
+
+Tres decisiones que conviene entender:
+
+- **Los pasos se agrupan.** Un arrastre genera un cambio por cada movimiento del puntero. Sin agrupar, deshacer retrocedería un píxel. Los cambios consecutivos sobre el mismo elemento y las mismas propiedades se funden en una sola entrada, y empezar un gesto nuevo cierra la anterior, para que dos arrastres seguidos sigan siendo dos pasos.
+- **Seleccionar no es un paso.** Elegir un elemento no es una edición del documento y nadie quiere deshacerlo. Sí se guarda en la instantánea, para que al deshacer vuelva la selección que había entonces.
+- **Un cambio que no cambia nada no ocupa un paso.** Confirmar dos veces, o arrastrar contra un borde donde la posición ya estaba limitada, no registran nada: un paso vacío haría que deshacer pareciera no responder.
+
+**Cambiar de documento descarta la capa y su historial.** Se reacciona al documento en sí, no al botón de restablecer, porque no es el único camino: «Cambiar documento» carga otro archivo sin pasar por él. Vaciar no bastaría: dejaría el historial en pie y deshacer devolvería los elementos del documento anterior, que se dibujarían sobre las páginas del nuevo, en las posiciones del primero.
+
+Los estados **se comparten por referencia, no se copian**. Los elementos son inmutables, así que cien pasos sobre un documento con una imagen de dos megas guardan una sola copia de esos bytes. El límite de cien pasos existe porque el historial no se puede vaciar solo.
+
+Los atajos son Ctrl+Z y Ctrl+Mayús+Z —o Ctrl+Y—, y **no se interceptan dentro de un campo de escritura**: quien está corrigiendo una palabra espera que Ctrl+Z deshaga sus letras, y quitárselo sería peor que no ofrecer el atajo.
+
 ### Idempotencia
 
 El documento de pdf-lib se abre **en el momento de aplicar**, no al cargar el archivo. Si se guardara en el estado, cada aplicación sucesiva dibujaría encima de la anterior y el resultado dependería de cuántas veces se hubiera pulsado el botón.
@@ -85,6 +103,7 @@ Los elementos se pueden arrastrar con el ratón o el dedo, **y también**:
 - Moverse con las flechas del teclado, con paso fino y paso grande usando Mayús.
 - Ajustarse con campos numéricos en porcentaje, que además permiten indicar una medida exacta.
 - Cambiarse de página, girarse y ajustar su opacidad con controles nativos.
+- Deshacerse y rehacerse con Ctrl+Z y Ctrl+Mayús+Z, además de con los botones de la barra.
 
 Una interfaz que solo se pudiera usar arrastrando dejaría fuera a quien navega con teclado. Los campos numéricos no son un añadido: son la vía principal, y arrastrar es la comodidad.
 
@@ -92,8 +111,11 @@ Cada elemento del lienzo es un botón real con `aria-pressed` y una etiqueta que
 
 ## Limitaciones conocidas
 
-- **No se pueden incrustar imágenes todavía** desde la interfaz de «Editar y anotar». El tipo de elemento existe, está implementado y probado en el motor, y la firma escaneada como imagen es el siguiente paso natural. Mientras no esté en la interfaz, no se afirma que exista.
-- **No hay deshacer general.** El lienzo de firma sí deshace trazos; la capa de elementos, no. Se quitan y se vuelven a añadir.
+- **Las imágenes se convierten en el propio navegador.** pdf-lib solo incrusta JPEG y PNG. Si ya vienen en uno de esos dos formatos se reutilizan sus bytes tal cual, sin recomprimir; un WebP se descodifica y se pasa a PNG con el `canvas`. En ningún caso sale nada de este equipo.
+- **El historial no sobrevive a recargar la página.** Vive en memoria, igual que la propia capa. Deshacer cubre la sesión, no lo que se hizo antes de recargar.
+- **«Cubrir área» es borrado visual, no censura.** Coloca un rectángulo opaco encima del contenido. Para eliminar información confidencial se debe usar «Censurar permanentemente», que rasteriza la página y elimina los píxeles subyacentes.
+- **«Editar texto» necesita detectar la palabra.** PDF.js alinea una capa transparente con el texto real y abre la palabra elegida como una única edición visual. Se conservan el tamaño y la variante tipográfica más cercana; los colores del texto y del fondo se estiman desde la propia página y quedan disponibles en el panel para afinarlos. En un PDF escaneado se usa OCR para localizar y reconocer las palabras.
+- **La sesión acumula cambios.** Cada elemento se confirma con «Guardar cambio» en su panel. Si se vuelve a modificar, queda pendiente de confirmación otra vez. El PDF se genera y descarga solo cuando todos están guardados y se pulsa «Descargar PDF terminado»; no hay que descargar y volver a subir el archivo entre correcciones.
 - **No hay ajuste automático de la caja al texto.** Si el texto no cabe en el alto de su caja, se recorta por líneas. Recortar no es lo ideal, pero es preferible a dejar que el texto se salga y se pinte sobre el resto de la página.
 - **Solo caracteres latinos**, por lo explicado arriba.
 - **La descripción de una imagen no se guarda en el documento.** Sirve para identificarla en la lista. pdf-lib no escribe texto alternativo de imágenes, y decir que sí sería falso.
