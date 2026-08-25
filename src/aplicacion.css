@@ -2740,6 +2740,18 @@
   letter-spacing: 0.04em;
 }
 
+.barra-herramientas-edicion__ayuda {
+  margin: calc(var(--espacio-2) * -1) 0 0;
+  font-size: 0.85rem;
+  color: var(--color-texto-suave);
+}
+
+.barra-herramientas-edicion .boton[aria-pressed='true'] {
+  color: var(--color-primario);
+  background-color: var(--color-primario-suave);
+  border-color: var(--color-primario);
+}
+
 .editor-visual {
   display: grid;
   gap: var(--espacio-4);
@@ -2792,9 +2804,29 @@
   cursor: default;
 }
 
+.lienzo-edicion__elemento--texto-editado:not(.lienzo-edicion__elemento--activo) {
+  border-color: transparent;
+}
+
+/*
+ * Una corrección puede ser más larga que la palabra que sustituye, y su caja mide
+ * exactamente lo que medía la original. Se deja desbordar para que se vea lo mismo
+ * que va a salir en el documento en lugar de un texto cortado a media letra.
+ */
+.lienzo-edicion__elemento--texto-editado,
+.lienzo-edicion__elemento--texto-editado .lienzo-edicion__vista {
+  overflow: visible;
+}
+
 .lienzo-edicion__elemento--activo {
+  overflow: visible;
   border: 2px solid var(--color-primario);
   box-shadow: 0 0 0 3px var(--color-primario-suave);
+}
+
+.lienzo-edicion__elemento--activo.lienzo-edicion__elemento--guardado {
+  border-color: var(--color-exito);
+  box-shadow: 0 0 0 3px var(--color-exito-suave);
 }
 
 .lienzo-edicion__elemento:focus-visible {
@@ -2804,8 +2836,153 @@
 
 .lienzo-edicion__vista {
   display: block;
+  overflow: hidden;
   width: 100%;
   height: 100%;
+}
+
+.lienzo-edicion__tirador {
+  position: absolute;
+  z-index: 2;
+  width: 0.9rem;
+  height: 0.9rem;
+  touch-action: none;
+  background-color: var(--color-primario);
+  border: 2px solid var(--color-superficie);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--color-primario);
+}
+
+.lienzo-edicion__tirador--inferior-derecho {
+  right: -0.5rem;
+  bottom: -0.5rem;
+  cursor: nwse-resize;
+}
+
+.lienzo-edicion__selector-area {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.lienzo-edicion__seleccion-area {
+  position: absolute;
+  background-color: rgb(255 255 255 / 82%);
+  border: 2px dashed var(--color-primario);
+  box-shadow: 0 0 0 9999px rgb(15 23 42 / 12%);
+}
+
+/* Capa de PDF.js usada mientras se eligen palabras existentes para editarlas. */
+.lienzo-edicion__selector-texto {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lienzo-edicion__capa-texto {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  cursor: text;
+  user-select: text;
+  transform-origin: 0 0;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  pointer-events: auto;
+
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.lienzo-edicion__capa-texto[data-main-rotation='90'] {
+  transform: rotate(90deg) translateY(-100%);
+}
+
+.lienzo-edicion__capa-texto[data-main-rotation='180'] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+
+.lienzo-edicion__capa-texto[data-main-rotation='270'] {
+  transform: rotate(270deg) translateX(-100%);
+}
+
+.lienzo-edicion__capa-texto :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  user-select: text;
+  transform-origin: 0 0;
+}
+
+.lienzo-edicion__capa-texto > :not(.markedContent),
+.lienzo-edicion__capa-texto .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+
+.lienzo-edicion__capa-texto .markedContent {
+  display: contents;
+}
+
+.lienzo-edicion__capa-texto ::selection {
+  color: transparent;
+  background-color: rgb(37 99 235 / 35%);
+}
+
+.lienzo-edicion__mensaje-texto {
+  position: absolute;
+  z-index: 3;
+  top: var(--espacio-3);
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: calc(100% - var(--espacio-4));
+  padding: var(--espacio-2) var(--espacio-3);
+  font-size: 0.8rem;
+  color: var(--color-texto);
+  text-align: center;
+  pointer-events: auto;
+  background-color: var(--color-superficie);
+  border: var(--grosor-borde) solid var(--color-borde);
+  border-radius: var(--radio-pastilla);
+  box-shadow: var(--sombra-pequena);
+  transform: translateX(-50%);
+}
+
+.lienzo-edicion__palabra-ocr {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  background-color: transparent;
+  border: 1px dashed rgb(37 99 235 / 55%);
+  border-radius: 2px;
+}
+
+.lienzo-edicion__palabra-ocr:hover,
+.lienzo-edicion__palabra-ocr:focus-visible {
+  background-color: rgb(37 99 235 / 22%);
+  border-color: var(--color-primario);
+  outline: 2px solid var(--color-foco);
+  outline-offset: 1px;
 }
 
 .lienzo-edicion__texto {
@@ -2814,6 +2991,35 @@
   font-size: 0.7rem;
   line-height: 1.2;
   word-break: break-word;
+}
+
+/* Fondo que tapa la palabra original, con el mismo desbordado que el dibujado final. */
+.lienzo-edicion__cobertura {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.lienzo-edicion__texto--editado {
+  position: absolute;
+  left: 0;
+
+  /*
+   * Al menos el ancho de la caja, y más si el texto no cabe.
+   *
+   * Con un ancho fijo del 100 %, una corrección más larga que la palabra original y
+   * alineada a la derecha desbordaría hacia la izquierda, mientras que el dibujado
+   * final la arranca en el borde izquierdo: «calcularSangria» limita la sangría a 0
+   * para no pintar por encima de la palabra anterior. Creciendo con el texto, la
+   * alineación solo actúa mientras quepa, que es justo lo que hace el PDF.
+   */
+  width: max-content;
+  min-width: 100%;
+  height: auto;
+  padding: 0;
+  overflow: visible;
+  white-space: pre;
+  word-break: normal;
 }
 
 .lienzo-edicion__relleno,
@@ -2885,6 +3091,24 @@
   flex-wrap: wrap;
   gap: var(--espacio-1);
   align-items: center;
+}
+
+.panel-elemento__estado-guardado {
+  padding: var(--espacio-2) var(--espacio-3);
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radio-pequeno);
+}
+
+.panel-elemento__estado-guardado--pendiente {
+  color: var(--color-texto);
+  background-color: var(--color-aviso-suave);
+}
+
+.panel-elemento__estado-guardado--confirmado {
+  color: var(--color-exito);
+  background-color: var(--color-exito-suave);
 }
 
 .panel-elemento__grupo {
