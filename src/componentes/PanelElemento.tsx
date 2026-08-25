@@ -17,7 +17,7 @@ import type {
 import { CampoNumero } from './CampoNumero'
 import { ControlDeslizante } from './ControlDeslizante'
 import { GrupoOpciones, type OpcionElegible } from './GrupoOpciones'
-import { IconoDuplicar, IconoPapelera } from './Iconos'
+import { IconoDuplicar, IconoGuardar, IconoPapelera } from './Iconos'
 import { SelectorColor } from './SelectorColor'
 
 interface PropiedadesPanelElemento {
@@ -30,6 +30,8 @@ interface PropiedadesPanelElemento {
   readonly alDuplicar: () => void
   readonly alSubir: () => void
   readonly alBajar: () => void
+  /** Confirma este elemento dentro de la sesión; solo se usa en Editar PDF. */
+  readonly alGuardar?: () => void
 }
 
 /** Opciones de alineación del texto. */
@@ -61,6 +63,7 @@ export function PanelElemento({
   alDuplicar,
   alSubir,
   alBajar,
+  alGuardar,
 }: PropiedadesPanelElemento) {
   return (
     <div className="panel-elemento">
@@ -68,6 +71,17 @@ export function PanelElemento({
         <h3 className="panel-elemento__titulo">{TITULO_CLASE[elemento.clase]}</h3>
 
         <div className="panel-elemento__acciones">
+          {alGuardar !== undefined && (
+            <button
+              className="boton boton--primario boton--pequeno"
+              type="button"
+              disabled={deshabilitado || elemento.guardado === true}
+              onClick={alGuardar}
+            >
+              <IconoGuardar className="boton__icono" />
+              {elemento.guardado === true ? 'Guardado ✓' : 'Guardar cambio'}
+            </button>
+          )}
           <button
             className="boton boton--discreto boton--pequeno"
             type="button"
@@ -105,7 +119,21 @@ export function PanelElemento({
         </div>
       </div>
 
-      {elemento.clase === 'texto' && (
+      {alGuardar !== undefined && (
+        <p
+          className={`panel-elemento__estado-guardado panel-elemento__estado-guardado--${
+            elemento.guardado === true ? 'confirmado' : 'pendiente'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {elemento.guardado === true
+            ? '✓ Guardado en esta sesión. Ya puedes continuar con otro cambio.'
+            : '● Vista previa en tiempo real. Pulsa «Guardar cambio» para confirmarla.'}
+        </p>
+      )}
+
+      {(elemento.clase === 'texto' || elemento.clase === 'texto-editado') && (
         <>
           <div className="campo-texto-bloque">
             <label className="campo-texto-bloque__etiqueta" htmlFor="contenido-texto">
@@ -117,11 +145,13 @@ export function PanelElemento({
               rows={3}
               value={elemento.texto}
               disabled={deshabilitado}
+              autoFocus={elemento.clase === 'texto-editado'}
               onChange={(evento) => alCambiar({ texto: evento.target.value })}
             />
             <p className="campo-texto-bloque__ayuda">
-              Se ajusta en líneas al ancho de la caja. Solo se pueden usar caracteres
-              latinos: las tipografías estándar del PDF no cubren otros alfabetos.
+              {elemento.clase === 'texto-editado'
+                ? 'Corrige aquí las letras necesarias. El fondo y el texto se guardan como una sola edición.'
+                : 'Se ajusta en líneas al ancho de la caja. Solo se pueden usar caracteres latinos: las tipografías estándar del PDF no cubren otros alfabetos.'}
             </p>
           </div>
 
@@ -174,6 +204,15 @@ export function PanelElemento({
             deshabilitado={deshabilitado}
             alCambiar={(color) => alCambiar({ color })}
           />
+
+          {elemento.clase === 'texto-editado' && (
+            <SelectorColor
+              etiqueta="Color del fondo original"
+              valor={elemento.colorFondo}
+              deshabilitado={deshabilitado}
+              alCambiar={(colorFondo) => alCambiar({ colorFondo })}
+            />
+          )}
         </>
       )}
 
@@ -395,6 +434,7 @@ export function PanelElemento({
 /** Título del panel según la clase del elemento. */
 const TITULO_CLASE = {
   texto: 'Texto',
+  'texto-editado': 'Editar texto existente',
   imagen: 'Imagen',
   trazo: 'Dibujo a mano alzada',
   forma: 'Forma',

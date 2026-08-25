@@ -4,7 +4,7 @@ import { liberarLienzo } from '../pdf/liberarDocumentoPdf'
 import { renderizarPaginaEnLienzo } from '../pdf/renderizarMiniaturaPdf'
 import type { GradosRotacion } from '../pdf/tipos'
 
-/** Ancho en píxeles CSS con el que se dibujan las miniaturas. */
+/** Ancho predeterminado en píxeles CSS con el que se dibujan las miniaturas. */
 const ANCHO_MINIATURA = 220
 
 /** Margen alrededor de la ventana en el que ya se empieza a dibujar. */
@@ -20,6 +20,11 @@ interface PropiedadesMiniaturaPaginaPdf {
   readonly numeroPagina: number
   /** Rotación adicional que se aplica sobre la del propio documento. */
   readonly rotacion: GradosRotacion
+  /**
+   * Ancho de renderizado, independiente del ancho con el que CSS muestra el lienzo.
+   * Las vistas grandes deben pedir más píxeles para no ampliar una miniatura.
+   */
+  readonly anchoObjetivo?: number
 }
 
 /**
@@ -37,6 +42,7 @@ export function MiniaturaPaginaPdf({
   documento,
   numeroPagina,
   rotacion,
+  anchoObjetivo = ANCHO_MINIATURA,
 }: PropiedadesMiniaturaPaginaPdf) {
   const refLienzo = useRef<HTMLCanvasElement>(null)
   const refContenedor = useRef<HTMLDivElement>(null)
@@ -107,7 +113,7 @@ export function MiniaturaPaginaPdf({
           documento,
           numeroPagina,
           lienzo,
-          ANCHO_MINIATURA,
+          anchoObjetivo,
           rotacion,
           controlador.signal,
         )
@@ -127,7 +133,7 @@ export function MiniaturaPaginaPdf({
     return () => {
       controlador.abort()
     }
-  }, [documento, numeroPagina, rotacion, visible])
+  }, [anchoObjetivo, documento, numeroPagina, rotacion, visible])
 
   return (
     <div className="miniatura" data-estado={estado} ref={refContenedor}>
