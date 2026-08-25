@@ -733,6 +733,17 @@ export function IconoDuplicar({ className }: PropiedadesIcono) {
   )
 }
 
+/** Disquete: confirmar o guardar un cambio individual. */
+export function IconoGuardar({ className }: PropiedadesIcono) {
+  return (
+    <IconoTrazo className={className}>
+      <path d="M5 3h12l3 3v15H4V4a1 1 0 0 1 1-1Z" />
+      <path d="M8 3v6h8V3" />
+      <path d="M8 21v-7h8v7" />
+    </IconoTrazo>
+  )
+}
+
 /** Lupa: buscar texto. */
 export function IconoBuscar({ className }: PropiedadesIcono) {
   return (
