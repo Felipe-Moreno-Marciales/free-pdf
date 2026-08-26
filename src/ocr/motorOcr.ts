@@ -14,7 +14,25 @@ export interface MensajeProgresoMotor {
 
 export interface MotorOcr {
   readonly reconocer: (imagen: Blob | Uint8Array) => Promise<string>
+  /** Reconoce palabras conservando sus cajas en píxeles, cuando el motor lo admite. */
+  readonly reconocerPalabras?: (
+    imagen: Blob | Uint8Array,
+  ) => Promise<ResultadoPalabrasOcr>
   readonly destruir: () => Promise<void>
+}
+
+export interface PalabraOcrMotor {
+  readonly texto: string
+  readonly confianza: number
+  readonly izquierda: number
+  readonly superior: number
+  readonly derecha: number
+  readonly inferior: number
+}
+
+export interface ResultadoPalabrasOcr {
+  readonly texto: string
+  readonly palabras: readonly PalabraOcrMotor[]
 }
 
 export interface RutasMotorOcr {
@@ -103,6 +121,35 @@ export async function crearMotorOcr(
         imagen as unknown as Parameters<typeof trabajador.recognize>[0]
       const resultado = await trabajador.recognize(entrada)
       return resultado.data.text
+    },
+    reconocerPalabras: async (imagen): Promise<ResultadoPalabrasOcr> => {
+      const entrada =
+        imagen as unknown as Parameters<typeof trabajador.recognize>[0]
+      const resultado = await trabajador.recognize(
+        entrada,
+        {},
+        { text: true, blocks: true },
+      )
+      const palabras: PalabraOcrMotor[] = []
+
+      for (const bloque of resultado.data.blocks ?? []) {
+        for (const parrafo of bloque.paragraphs) {
+          for (const linea of parrafo.lines) {
+            for (const palabra of linea.words) {
+              palabras.push({
+                texto: palabra.text,
+                confianza: palabra.confidence,
+                izquierda: palabra.bbox.x0,
+                superior: palabra.bbox.y0,
+                derecha: palabra.bbox.x1,
+                inferior: palabra.bbox.y1,
+              })
+            }
+          }
+        }
+      }
+
+      return { texto: resultado.data.text, palabras }
     },
     destruir: async (): Promise<void> => {
       if (promesaDestruccion !== null) return await promesaDestruccion
