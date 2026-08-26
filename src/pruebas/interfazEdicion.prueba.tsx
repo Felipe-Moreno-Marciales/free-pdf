@@ -2,10 +2,23 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { LienzoFirma } from '../componentes/LienzoFirma'
+import { LienzoEdicion } from '../componentes/LienzoEdicion'
 import { PanelElemento } from '../componentes/PanelElemento'
-import { crearForma, crearTexto, crearTrazo } from '../edicion/crearElementos'
+import {
+  crearForma,
+  crearTexto,
+  crearTextoEditado,
+  crearTrazo,
+} from '../edicion/crearElementos'
+import { elegirTipografia } from '../edicion/seleccionTexto'
 import type { ElementoSuperpuesto, ElementoTexto } from '../edicion/tipos'
 import { useCapaEdicion } from '../edicion/useCapaEdicion'
+import { useEditarPdf } from '../funcionalidades/editar-pdf/useEditarPdf'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
+
+vi.mock('../componentes/MiniaturaPaginaPdf', () => ({
+  MiniaturaPaginaPdf: () => <div data-testid="pagina-pdf" />,
+}))
 
 /** Texto de ejemplo ya con contenido, para que cuente como «pinta». */
 function textoConContenido(pagina = 1): ElementoTexto {
@@ -159,6 +172,22 @@ describe('useCapaEdicion', () => {
     expect(result.current.elementos[0]?.id).toBe(primero)
   })
 
+  it('una copia queda pendiente de guardar aunque el original estuviera guardado', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) =>
+        crearTexto(id, 1, { texto: 'Original', guardado: true }),
+      )
+    })
+    const id = result.current.elementos[0]?.id ?? ''
+
+    act(() => result.current.duplicar(id))
+
+    expect(result.current.elementos[0]?.guardado).toBe(true)
+    expect(result.current.elementos[1]?.guardado).toBe(false)
+  })
+
   it('no hace nada al subir el que ya está encima', () => {
     const { result } = renderHook(() => useCapaEdicion())
 
@@ -255,12 +284,361 @@ describe('useCapaEdicion', () => {
   })
 })
 
+describe('deshacer y rehacer en useCapaEdicion', () => {
+  it('no ofrece deshacer sobre una capa recién creada', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    expect(result.current.puedeDeshacer).toBe(false)
+    expect(result.current.puedeRehacer).toBe(false)
+  })
+
+  it('recupera todo lo que «Quitar todo» había borrado', () => {
+    // Es el caso que justifica el historial: la capa solo vive en memoria, así que
+    // sin esto un clic destruye una sesión entera de correcciones.
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Dos' }))
+    })
+    act(() => result.current.vaciar())
+
+    expect(result.current.elementos).toHaveLength(0)
+
+    act(() => result.current.deshacer())
+
+    expect(result.current.elementos).toHaveLength(2)
+  })
+
+  it('devuelve la selección que había en ese paso', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    const primero = result.current.idSeleccionado
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Dos' }))
+    })
+    act(() => result.current.deshacer())
+
+    expect(result.current.idSeleccionado).toBe(primero)
+  })
+
+  it('funde un arrastre entero en un solo paso', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    const id = result.current.idSeleccionado ?? ''
+
+    for (const posicion of [0.2, 0.3, 0.4, 0.5]) {
+      act(() =>
+        result.current.cambiar(id, {
+          izquierda: posicion,
+          superior: posicion,
+        }),
+      )
+    }
+
+    act(() => result.current.deshacer())
+
+    // Un solo Ctrl+Z devuelve el elemento a donde estaba antes del arrastre.
+    expect(result.current.elementos[0]?.izquierda).toBeCloseTo(0.1, 6)
+  })
+
+  it('separa dos gestos seguidos que tocan las mismas propiedades', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    const id = result.current.idSeleccionado ?? ''
+
+    act(() => result.current.cambiar(id, { izquierda: 0.3 }))
+    act(() => result.current.separar())
+    act(() => result.current.cambiar(id, { izquierda: 0.5 }))
+    act(() => result.current.deshacer())
+
+    expect(result.current.elementos[0]?.izquierda).toBeCloseTo(0.3, 6)
+  })
+
+  it('no gasta un paso en un cambio que no cambia nada', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    const id = result.current.idSeleccionado ?? ''
+
+    act(() => result.current.cambiar(id, { texto: 'Uno' }))
+
+    // Solo el paso de añadir: si el cambio vacío contara, deshacer parecería roto.
+    act(() => result.current.deshacer())
+
+    expect(result.current.elementos).toHaveLength(0)
+  })
+
+  it('no gasta un paso al subir el elemento que ya está arriba', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    const id = result.current.idSeleccionado ?? ''
+
+    act(() => result.current.subir(id))
+    act(() => result.current.deshacer())
+
+    expect(result.current.elementos).toHaveLength(0)
+  })
+
+  it('rehacer devuelve lo deshecho, y añadir algo nuevo lo descarta', () => {
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    act(() => result.current.deshacer())
+
+    expect(result.current.puedeRehacer).toBe(true)
+
+    act(() => result.current.rehacer())
+
+    expect(result.current.elementos).toHaveLength(1)
+
+    act(() => result.current.deshacer())
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Otro' }))
+    })
+
+    expect(result.current.puedeRehacer).toBe(false)
+  })
+
+  it('reiniciar borra también el historial, para no arrastrarlo al documento siguiente', () => {
+    // Vaciar deja el historial en pie: deshacer devolvería los elementos del
+    // documento que se acaba de cerrar y se dibujarían sobre las páginas del nuevo.
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    act(() => result.current.reiniciar())
+
+    expect(result.current.elementos).toHaveLength(0)
+    expect(result.current.puedeDeshacer).toBe(false)
+    expect(result.current.puedeRehacer).toBe(false)
+
+    act(() => result.current.deshacer())
+
+    expect(result.current.elementos).toHaveLength(0)
+  })
+
+  it('no reutiliza identificadores después de vaciar y deshacer', () => {
+    // Si el contador retrocediera al vaciar, el elemento restaurado y el nuevo
+    // compartirían identificador, y editar uno editaría los dos.
+    const { result } = renderHook(() => useCapaEdicion())
+
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Uno' }))
+    })
+    act(() => result.current.vaciar())
+    act(() => result.current.deshacer())
+    act(() => {
+      result.current.anadir((id) => crearTexto(id, 1, { texto: 'Dos' }))
+    })
+
+    const identificadores = new Set(
+      result.current.elementos.map((elemento) => elemento.id),
+    )
+
+    expect(identificadores.size).toBe(result.current.elementos.length)
+  })
+})
+
+describe('guardado individual en useEditarPdf', () => {
+  it('confirma el elemento y conserva la selección para mostrar el resultado', () => {
+    const { result } = renderHook(() => useEditarPdf())
+
+    act(() => {
+      result.current.editarTextoExistente({
+        texto: 'Audit',
+        cajas: [
+          { izquierda: 0.2, superior: 0.2, ancho: 0.1, alto: 0.03 },
+        ],
+        tamano: 18,
+        tipografia: 'helvetica-negrita',
+        lineaBase: 0.224,
+        colorTexto: '#007f99',
+        colorFondo: '#ffffff',
+      })
+    })
+
+    const id = result.current.capa.seleccionado?.id ?? ''
+
+    expect(result.current.cambiosSinGuardar).toBe(1)
+    expect(result.current.capa.seleccionado?.guardado).not.toBe(true)
+
+    act(() => result.current.guardarCambio(id))
+
+    expect(result.current.cambiosSinGuardar).toBe(0)
+    expect(result.current.capa.seleccionado?.id).toBe(id)
+    expect(result.current.capa.seleccionado?.guardado).toBe(true)
+  })
+
+  it('guarda la línea base del original relativa a la caja de la corrección', () => {
+    const { result } = renderHook(() => useEditarPdf())
+
+    act(() => {
+      result.current.editarTextoExistente({
+        texto: 'Audit',
+        cajas: [{ izquierda: 0.2, superior: 0.2, ancho: 0.1, alto: 0.04 }],
+        tamano: 12,
+        tipografia: 'helvetica',
+        // La palabra ocupa de 0,2 a 0,24 y se apoya en 0,232: tres cuartos de su caja.
+        lineaBase: 0.232,
+        colorTexto: '#111111',
+        colorFondo: '#ffffff',
+      })
+    })
+
+    const elemento = result.current.capa.seleccionado
+
+    expect(elemento?.clase).toBe('texto-editado')
+    expect(
+      elemento?.clase === 'texto-editado' ? elemento.lineaBase : 0,
+    ).toBeCloseTo(0.8, 6)
+  })
+
+  it('vuelve a marcar como pendiente un elemento guardado que se modifica', () => {
+    const { result } = renderHook(() => useEditarPdf())
+
+    act(() => {
+      result.current.anadirTexto()
+    })
+    const id = result.current.capa.seleccionado?.id ?? ''
+
+    act(() => result.current.guardarCambio(id))
+    act(() => result.current.capa.cambiar(id, { texto: 'Texto modificado' }))
+
+    expect(result.current.capa.seleccionado?.guardado).toBe(false)
+    expect(result.current.cambiosSinGuardar).toBe(1)
+  })
+})
+
+describe('LienzoEdicion', () => {
+  it('permite quitar el elemento seleccionado con la tecla Suprimir', () => {
+    const alQuitar = vi.fn()
+    const elemento = textoConContenido()
+
+    render(
+      <LienzoEdicion
+        documento={{} as PDFDocumentProxy}
+        numeroPagina={1}
+        elementos={[elemento]}
+        idSeleccionado={elemento.id}
+        deshabilitado={false}
+        alSeleccionar={vi.fn()}
+        alMover={vi.fn()}
+        alRedimensionar={vi.fn()}
+        alQuitar={alQuitar}
+      />,
+    )
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /Texto «Contenido»/i }), {
+      key: 'Delete',
+    })
+
+    expect(alQuitar).toHaveBeenCalledWith(elemento.id)
+  })
+
+  it('muestra el tirador de tamaño solo en el elemento seleccionado', () => {
+    const seleccionado = textoConContenido()
+    const otro = crearTexto('otro', 1, { texto: 'Otro' })
+    const { container } = render(
+      <LienzoEdicion
+        documento={{} as PDFDocumentProxy}
+        numeroPagina={1}
+        elementos={[seleccionado, otro]}
+        idSeleccionado={seleccionado.id}
+        deshabilitado={false}
+        alSeleccionar={vi.fn()}
+        alMover={vi.fn()}
+        alRedimensionar={vi.fn()}
+        alQuitar={vi.fn()}
+      />,
+    )
+
+    expect(container.querySelectorAll('.lienzo-edicion__tirador')).toHaveLength(1)
+  })
+
+  it('convierte el área arrastrada en fracciones de la página', () => {
+    const alCubrirArea = vi.fn()
+    const { container } = render(
+      <LienzoEdicion
+        documento={{} as PDFDocumentProxy}
+        numeroPagina={1}
+        elementos={[]}
+        idSeleccionado={null}
+        deshabilitado={false}
+        alSeleccionar={vi.fn()}
+        alMover={vi.fn()}
+        alRedimensionar={vi.fn()}
+        alQuitar={vi.fn()}
+        cubriendoArea
+        alCubrirArea={alCubrirArea}
+      />,
+    )
+
+    const pagina = container.querySelector('.lienzo-edicion__pagina')
+    const selector = screen.getByRole('region', {
+      name: /Arrastra sobre la zona/i,
+    })
+
+    expect(pagina).not.toBeNull()
+    Object.defineProperty(pagina, 'getBoundingClientRect', {
+      value: () => ({
+        left: 0,
+        top: 0,
+        width: 200,
+        height: 400,
+        right: 200,
+        bottom: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => undefined,
+      }),
+    })
+    Object.defineProperty(selector, 'setPointerCapture', { value: vi.fn() })
+
+    fireEvent.pointerDown(selector, { pointerId: 1, clientX: 20, clientY: 40 })
+    fireEvent.pointerMove(selector, { pointerId: 1, clientX: 120, clientY: 200 })
+    fireEvent.pointerUp(selector, { pointerId: 1, clientX: 120, clientY: 200 })
+
+    expect(alCubrirArea).toHaveBeenCalledWith({
+      izquierda: 0.1,
+      superior: 0.1,
+      ancho: 0.5,
+      alto: 0.4,
+    })
+  })
+})
+
 describe('PanelElemento', () => {
   /** Monta el panel con un elemento y devuelve el espía de cambios. */
-  function montar(elemento: ElementoSuperpuesto, numeroPaginas = 1) {
+  function montar(
+    elemento: ElementoSuperpuesto,
+    numeroPaginas = 1,
+    conGuardado = false,
+  ) {
     const alCambiar = vi.fn()
     const alQuitar = vi.fn()
     const alDuplicar = vi.fn()
+    const alGuardar = vi.fn()
 
     render(
       <PanelElemento
@@ -272,10 +650,11 @@ describe('PanelElemento', () => {
         alDuplicar={alDuplicar}
         alSubir={vi.fn()}
         alBajar={vi.fn()}
+        {...(conGuardado ? { alGuardar } : {})}
       />,
     )
 
-    return { alCambiar, alQuitar, alDuplicar }
+    return { alCambiar, alQuitar, alDuplicar, alGuardar }
   }
 
   it('muestra el contenido del texto y avisa de sus cambios', () => {
@@ -288,6 +667,66 @@ describe('PanelElemento', () => {
     fireEvent.change(area, { target: { value: 'Otro texto' } })
 
     expect(alCambiar).toHaveBeenCalledWith({ texto: 'Otro texto' })
+  })
+
+  it('permite guardar individualmente un cambio pendiente', async () => {
+    const { alGuardar } = montar(
+      crearTextoEditado('pendiente', 1, {
+        texto: 'Audit',
+        guardado: false,
+      }),
+      1,
+      true,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambio' }))
+
+    expect(alGuardar).toHaveBeenCalledOnce()
+    expect(screen.getByText(/Vista previa en tiempo real/i)).toBeDefined()
+  })
+
+  it('indica cuando el cambio seleccionado ya está guardado', () => {
+    montar(
+      crearTextoEditado('guardado', 1, {
+        texto: 'Audit',
+        guardado: true,
+      }),
+      1,
+      true,
+    )
+
+    expect(
+      (screen.getByRole('button', { name: 'Guardado ✓' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(screen.getByText(/Guardado en esta sesión/i)).toBeDefined()
+  })
+
+  it('muestra el estilo detectado de una palabra existente y permite afinarlo', () => {
+    const { alCambiar } = montar(
+      crearTextoEditado('editado', 1, {
+        texto: 'Computer Audit',
+        tipografia: 'helvetica-negrita',
+        tamano: 18,
+        color: '#007f99',
+        colorFondo: '#ffffff',
+      }),
+    )
+
+    expect(screen.getByRole('heading', { name: 'Editar texto existente' })).toBeDefined()
+    expect((screen.getByLabelText('Tipografía') as HTMLSelectElement).value).toBe(
+      'helvetica-negrita',
+    )
+    expect((screen.getByLabelText('Cuerpo') as HTMLInputElement).value).toBe('18')
+
+    fireEvent.change(
+      screen.getByLabelText(
+        'Color del fondo original: escribir el código hexadecimal',
+      ),
+      { target: { value: '#f0f0f0' } },
+    )
+
+    expect(alCambiar).toHaveBeenCalledWith({ colorFondo: '#f0f0f0' })
   })
 
   it('ofrece las tipografías estándar y avisa del cambio', async () => {
@@ -376,6 +815,28 @@ describe('PanelElemento', () => {
     })
 
     expect(screen.getByText(/no se guarda en el documento/i)).not.toBeNull()
+  })
+})
+
+describe('detección de tipografía PDF', () => {
+  it('conserva negrita y familia aproximada desde el nombre incrustado', () => {
+    expect(
+      elegirTipografia({
+        familia: 'sans-serif',
+        nombre: 'OpenSans-Bold',
+        negrita: true,
+        cursiva: false,
+      }),
+    ).toBe('helvetica-negrita')
+
+    expect(
+      elegirTipografia({
+        familia: 'serif',
+        nombre: 'TimesNewRomanPS-ItalicMT',
+        negrita: false,
+        cursiva: true,
+      }),
+    ).toBe('times-cursiva')
   })
 })
 
