@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { aplicarEdicion, NOMBRE_FIRMADO } from '../../edicion/aplicarEdicion'
 import { crearTexto, crearTrazo } from '../../edicion/crearElementos'
 import type {
@@ -11,6 +11,7 @@ import {
 } from '../../edicion/useCapaEdicion'
 import {
   useDocumentoPdf,
+  type DocumentoCargado,
   type ControladorDocumentoPdf,
 } from '../../ganchos/useDocumentoPdf'
 import {
@@ -90,6 +91,22 @@ export function useFirmaVisual(): ControladorFirmaVisual {
 
   const cargado = documento.documento
 
+  // Cambiar de documento descarta la capa y su historial. Se reacciona al documento
+  // en sí, no al botón de restablecer: «Cambiar documento» carga otro archivo sin
+  // pasar por él, y sin esto las firmas del anterior irían sobre el nuevo.
+  const documentoAnterior = useRef<DocumentoCargado | null>(null)
+  const reiniciarCapa = capa.reiniciar
+
+  useEffect(() => {
+    if (documentoAnterior.current === cargado) {
+      return
+    }
+
+    documentoAnterior.current = cargado
+    reiniciarCapa()
+    establecerPaginaActiva(1)
+  }, [cargado, reiniciarCapa])
+
   const cambiarModo = useCallback((siguiente: ModoFirma): void => {
     establecerModo(siguiente)
   }, [])
@@ -162,7 +179,7 @@ export function useFirmaVisual(): ControladorFirmaVisual {
   const restablecer = useCallback((): void => {
     proceso.cancelar()
     proceso.limpiarResultado()
-    capa.vaciar()
+    capa.reiniciar()
     establecerTrazos([])
     establecerTextoFirma('')
     establecerPaginaActiva(1)
