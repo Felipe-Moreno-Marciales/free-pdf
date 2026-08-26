@@ -210,6 +210,9 @@ describe('motor OCR real', () => {
         const vacio = normalizarReconocido(
           await motor.reconocer(crearBmp('   ')),
         )
+        const detallado = await motor.reconocerPalabras?.(
+          crearBmp('HELLO WORLD'),
+        )
 
         expect(espanol).toContain('TEXTO')
         // La tipografía de píxeles es deliberadamente mínima: el motor acierta
@@ -218,6 +221,15 @@ describe('motor OCR real', () => {
         expect(combinado).toContain('HOLA')
         expect(combinado).toContain('WORL')
         expect(vacio).toBe('')
+        expect(detallado?.palabras.some((palabra) => palabra.texto.includes('HELLO')))
+          .toBe(true)
+        expect(
+          detallado?.palabras.every(
+            (palabra) =>
+              palabra.derecha > palabra.izquierda &&
+              palabra.inferior > palabra.superior,
+          ),
+        ).toBe(true)
         expect(avances.some((avance) => avance > 0 && avance <= 1)).toBe(true)
       } finally {
         await motor.destruir()
