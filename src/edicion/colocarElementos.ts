@@ -203,6 +203,9 @@ export function elementoPinta(elemento: ElementoSuperpuesto): boolean {
   switch (elemento.clase) {
     case 'texto':
       return elemento.texto.trim() !== ''
+    case 'texto-editado':
+      // Aunque se deje vacío, el fondo sigue quitando visualmente la palabra original.
+      return true
     case 'imagen':
       return elemento.bytes.byteLength > 0
     case 'trazo':
@@ -223,6 +226,13 @@ export function describirElemento(elemento: ElementoSuperpuesto): string {
       return recortado === ''
         ? 'Texto sin contenido'
         : `Texto «${recortado.length > 30 ? `${recortado.slice(0, 30)}…` : recortado}»`
+    }
+    case 'texto-editado': {
+      const recortado = elemento.texto.trim()
+
+      return recortado === ''
+        ? 'Texto existente eliminado'
+        : `Texto existente «${recortado.length > 30 ? `${recortado.slice(0, 30)}…` : recortado}»`
     }
     case 'imagen':
       return elemento.descripcion.trim() === ''
