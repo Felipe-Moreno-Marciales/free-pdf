@@ -8,8 +8,10 @@ import {
 } from '../../componentes/GrupoOpciones'
 import {
   IconoDescargar,
+  IconoDeshacer,
   IconoDetener,
   IconoFirma,
+  IconoRehacer,
   IconoRestablecer,
 } from '../../componentes/Iconos'
 import { LienzoEdicion } from '../../componentes/LienzoEdicion'
@@ -17,6 +19,7 @@ import { LienzoFirma } from '../../componentes/LienzoFirma'
 import { PanelElemento } from '../../componentes/PanelElemento'
 import { SelectorColor } from '../../componentes/SelectorColor'
 import { describirElemento } from '../../edicion/colocarElementos'
+import { useAtajosHistorial } from '../../ganchos/useAtajosHistorial'
 import { describirEstadoOcupado } from '../../pdf/estadoHerramienta'
 import { formatearTamanoArchivo } from '../../utilidades/formatearTamano'
 import {
@@ -65,6 +68,12 @@ export function HerramientaFirmaVisual() {
 
   const cargado = documento.documento
   const elementosPagina = capa.elementosDePagina(paginaActiva)
+
+  useAtajosHistorial({
+    deshacer: capa.deshacer,
+    rehacer: capa.rehacer,
+    activo: cargado !== null && !bloqueado,
+  })
 
   return (
     <div className="herramienta__cuerpo">
@@ -192,6 +201,9 @@ export function HerramientaFirmaVisual() {
               deshabilitado={bloqueado}
               alSeleccionar={capa.seleccionar}
               alMover={(id, posicion) => capa.cambiar(id, posicion)}
+              alRedimensionar={(id, tamano) => capa.cambiar(id, tamano)}
+              alQuitar={capa.quitar}
+              alEmpezarGesto={capa.separar}
             />
 
             <div className="editor-visual__panel">
@@ -256,10 +268,33 @@ export function HerramientaFirmaVisual() {
               </ol>
 
               <button
+                className="boton boton--secundario"
+                type="button"
+                disabled={bloqueado || !capa.puedeDeshacer}
+                onClick={capa.deshacer}
+                title="Deshacer el último cambio (Ctrl+Z)"
+              >
+                <IconoDeshacer className="boton__icono" />
+                Deshacer
+              </button>
+
+              <button
+                className="boton boton--secundario"
+                type="button"
+                disabled={bloqueado || !capa.puedeRehacer}
+                onClick={capa.rehacer}
+                title="Rehacer el cambio deshecho (Ctrl+Mayús+Z)"
+              >
+                <IconoRehacer className="boton__icono" />
+                Rehacer
+              </button>
+
+              <button
                 className="boton boton--discreto"
                 type="button"
                 disabled={bloqueado}
                 onClick={capa.vaciar}
+                title="Quita todas las firmas; se puede deshacer con Ctrl+Z"
               >
                 <IconoRestablecer className="boton__icono" />
                 Quitar todas
