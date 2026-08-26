@@ -1,10 +1,12 @@
 import type { Punto } from '../pdf/posicionarEnPagina'
 import { OPACIDAD_RESALTADO } from './colocarElementos'
+import { LINEA_BASE_APROXIMADA } from './seleccionTexto'
 import type {
   ElementoForma,
   ElementoImagen,
   ElementoResaltado,
   ElementoTexto,
+  ElementoTextoEditado,
   ElementoTrazo,
   FiguraGeometrica,
   FormatoImagenIncrustable,
@@ -23,6 +25,9 @@ export const COLOR_PREDETERMINADO = '#1f2933'
 
 /** Color de partida del resaltado. */
 export const COLOR_RESALTADO = '#ffe066'
+
+/** Color de partida para cubrir contenido sobre una página blanca. */
+export const COLOR_COBERTURA = '#ffffff'
 
 /** Texto nuevo, colocado arriba a la izquierda. */
 export function crearTexto(
@@ -45,6 +50,33 @@ export function crearTexto(
     tamano: 12,
     color: COLOR_PREDETERMINADO,
     alineacion: 'izquierda',
+    ...cambios,
+  }
+}
+
+/** Reemplazo editable de texto existente, colocado sobre su caja original. */
+export function crearTextoEditado(
+  id: string,
+  pagina: number,
+  cambios: Partial<ElementoTextoEditado> = {},
+): ElementoTextoEditado {
+  return {
+    id,
+    clase: 'texto-editado',
+    pagina,
+    izquierda: 0.1,
+    superior: 0.1,
+    ancho: 0.25,
+    alto: 0.04,
+    giro: 0,
+    opacidad: 1,
+    texto: '',
+    tipografia: 'helvetica',
+    tamano: 12,
+    color: '#111111',
+    colorFondo: COLOR_COBERTURA,
+    alineacion: 'izquierda',
+    lineaBase: LINEA_BASE_APROXIMADA,
     ...cambios,
   }
 }
@@ -97,6 +129,29 @@ export function crearResaltado(
     color: COLOR_RESALTADO,
     ...cambios,
   }
+}
+
+/**
+ * Rectángulo opaco para ocultar visualmente una zona del documento.
+ *
+ * Sigue siendo una forma de la capa de edición: no se presenta como censura porque
+ * el contenido original continúa debajo y podría recuperarse.
+ */
+export function crearCobertura(
+  id: string,
+  pagina: number,
+  cambios: Partial<ElementoForma> = {},
+): ElementoForma {
+  return crearForma(id, pagina, 'rectangulo', {
+    izquierda: 0.1,
+    superior: 0.1,
+    ancho: 0.35,
+    alto: 0.06,
+    relleno: COLOR_COBERTURA,
+    borde: null,
+    grosorBorde: 0.25,
+    ...cambios,
+  })
 }
 
 /** Imagen nueva, con las medidas ajustadas a su proporción real. */
