@@ -41,6 +41,7 @@ export type FormatoImagenIncrustable = 'png' | 'jpeg'
 /** Clases de elemento que admite el editor. */
 export type ClaseElemento =
   | 'texto'
+  | 'texto-editado'
   | 'imagen'
   | 'trazo'
   | 'forma'
@@ -71,6 +72,8 @@ export interface BaseElemento {
   readonly giro: number
   /** Opacidad de 0 a 1. */
   readonly opacidad: number
+  /** Confirmado individualmente en la sesión de «Editar PDF». */
+  readonly guardado?: boolean
 }
 
 /** Texto suelto colocado sobre la página. */
@@ -83,6 +86,27 @@ export interface ElementoTexto extends BaseElemento {
   /** Color en notación `#rrggbb`. */
   readonly color: string
   readonly alineacion: AlineacionTexto
+}
+
+/** Sustitución visual de una palabra que ya existía en el PDF. */
+export interface ElementoTextoEditado extends BaseElemento {
+  readonly clase: 'texto-editado'
+  readonly texto: string
+  readonly tipografia: ClaveTipografia
+  readonly tamano: number
+  readonly color: string
+  readonly colorFondo: string
+  readonly alineacion: AlineacionTexto
+  /**
+   * Dónde se apoya la primera línea base, como fracción del alto de la caja medida
+   * desde arriba.
+   *
+   * La caja marca el hueco que ocupaba la palabra original, con sus ascendentes y
+   * descendentes; la línea base es lo que de verdad hay que respetar para que la
+   * corrección quede a la misma altura que el resto de la línea. Se guarda como
+   * fracción para que siga valiendo si la caja se redimensiona.
+   */
+  readonly lineaBase: number
 }
 
 /** Imagen incrustada. */
@@ -143,6 +167,7 @@ export interface ElementoResaltado extends BaseElemento {
  */
 export type ElementoSuperpuesto =
   | ElementoTexto
+  | ElementoTextoEditado
   | ElementoImagen
   | ElementoTrazo
   | ElementoForma
