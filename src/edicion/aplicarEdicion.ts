@@ -4,6 +4,7 @@ import { comprobarCancelacion, cederElControl } from '../pdf/cancelacion'
 import { interpretarColorConReserva, NEGRO, type ColorRgb } from '../pdf/colores'
 import { ErrorPdf, envolverErrorPdf } from '../pdf/erroresPdf'
 import { guardarComoResultado } from '../pdf/guardarDocumentoPdf'
+import { calcularMedidasVisibles } from '../pdf/posicionarEnPagina'
 import { normalizarRotacion } from '../pdf/rotaciones'
 import type { GradosRotacion } from '../pdf/tipos'
 import {
@@ -14,6 +15,7 @@ import {
   puntoDeTrazoAVisible,
   type ContextoPagina,
 } from './colocarElementos'
+import { MARGEN_COBERTURA_PUNTOS } from './seleccionTexto'
 import { TIPOGRAFIAS_ESTANDAR } from './tipografias'
 import type {
   ElementoForma,
@@ -21,6 +23,7 @@ import type {
   ElementoResaltado,
   ElementoSuperpuesto,
   ElementoTexto,
+  ElementoTextoEditado,
   ElementoTrazo,
   ProgresoEdicion,
   ResultadoEdicion,
@@ -200,6 +203,9 @@ async function dibujarElemento(peticion: PeticionDibujo): Promise<void> {
     case 'texto':
       await dibujarTexto(peticion, elemento)
       return
+    case 'texto-editado':
+      await dibujarTextoEditado(peticion, elemento)
+      return
     case 'imagen':
       await dibujarImagen(peticion, elemento)
       return
@@ -215,6 +221,23 @@ async function dibujarElemento(peticion: PeticionDibujo): Promise<void> {
   }
 }
 
+/** Cómo colocar el texto dentro de su caja. */
+interface OpcionesTexto {
+  /**
+   * Distancia en puntos desde el borde superior de la caja hasta la primera línea
+   * base.
+   */
+  readonly lineaBase: number
+  /**
+   * Reparte el texto en líneas para que quepa en el ancho de la caja.
+   *
+   * Se desactiva al corregir una palabra existente: su caja mide exactamente lo que
+   * medía la palabra original, así que ajustar al ancho partiría cualquier
+   * corrección más larga y solo se vería la primera línea.
+   */
+  readonly ajustar: boolean
+}
+
 /**
  * Dibuja un texto.
  *
@@ -224,7 +247,8 @@ async function dibujarElemento(peticion: PeticionDibujo): Promise<void> {
  */
 async function dibujarTexto(
   peticion: PeticionDibujo,
-  elemento: ElementoTexto,
+  elemento: ElementoTexto | ElementoTextoEditado,
+  opciones?: OpcionesTexto,
 ): Promise<void> {
   const { pagina, pdfLib, contexto } = peticion
   const tipografia = await peticion.tipografias.obtener(elemento.tipografia)
@@ -232,16 +256,17 @@ async function dibujarTexto(
 
   const colocacion = calcularColocacionElemento(elemento, contexto)
   const caja = colocacion.cajaEnPagina
+  const ajustar = opciones?.ajustar ?? true
+  const lineaBase = opciones?.lineaBase ?? elemento.tamano * 0.8
 
-  const lineas = ajustarLineas(
-    elemento.texto,
-    tipografia,
-    elemento.tamano,
-    caja.ancho,
-  )
+  const lineas = ajustar
+    ? ajustarLineas(elemento.texto, tipografia, elemento.tamano, caja.ancho)
+    : elemento.texto.split(/\r?\n/u)
 
   const interlineado = elemento.tamano * 1.2
-  const cabenLineas = Math.max(1, Math.floor(caja.alto / interlineado))
+  const cabenLineas = ajustar
+    ? Math.max(1, Math.floor(caja.alto / interlineado))
+    : lineas.length
   const visibles = lineas.slice(0, cabenLineas)
 
   for (const [indice, linea] of visibles.entries()) {
@@ -252,10 +277,9 @@ async function dibujarTexto(
       anchoLinea,
     )
 
-    // La primera línea empieza arriba de la caja. pdf-lib coloca el texto por su
-    // línea base, así que se baja el ascenso de la tipografía.
-    const desplazamientoY =
-      caja.alto - interlineado * indice - elemento.tamano * 0.8
+    // pdf-lib coloca el texto por su línea base, así que se cuenta desde el borde
+    // superior de la caja hasta donde se apoyan las letras.
+    const desplazamientoY = caja.alto - lineaBase - interlineado * indice
 
     const colocacionLinea = calcularColocacionElemento(elemento, contexto, {
       x: sangria,
@@ -270,6 +294,47 @@ async function dibujarTexto(
       color: aColorPdf(pdfLib, color),
       opacity: elemento.opacidad,
       rotate: pdfLib.degrees(colocacionLinea.rotacionGrados),
+    })
+  }
+}
+
+/**
+ * Cubre solo la caja de la palabra original y dibuja su versión corregida.
+ *
+ * La caja del elemento coincide con la palabra original al píxel, porque es lo que
+ * hace que la corrección caiga en su sitio. El fondo sí se agranda un poco al
+ * pintarlo, para que no asomen los bordes suavizados de los glifos de debajo.
+ */
+async function dibujarTextoEditado(
+  peticion: PeticionDibujo,
+  elemento: ElementoTextoEditado,
+): Promise<void> {
+  const medidas = calcularMedidasVisibles(
+    peticion.contexto.caja,
+    peticion.contexto.rotacion,
+  )
+  const margenAncho = MARGEN_COBERTURA_PUNTOS / Math.max(1, medidas.ancho)
+  const margenAlto = MARGEN_COBERTURA_PUNTOS / Math.max(1, medidas.alto)
+
+  dibujarForma(peticion, {
+    ...elemento,
+    clase: 'forma',
+    figura: 'rectangulo',
+    izquierda: elemento.izquierda - margenAncho,
+    superior: elemento.superior - margenAlto,
+    ancho: elemento.ancho + margenAncho * 2,
+    alto: elemento.alto + margenAlto * 2,
+    relleno: elemento.colorFondo,
+    borde: null,
+    grosorBorde: 0.25,
+  })
+
+  if (elemento.texto.trim() !== '') {
+    const caja = calcularCajaVisible(elemento, medidas)
+
+    await dibujarTexto(peticion, elemento, {
+      lineaBase: elemento.lineaBase * caja.alto,
+      ajustar: false,
     })
   }
 }
