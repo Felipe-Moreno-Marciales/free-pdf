@@ -23,6 +23,8 @@ import {
   TIPOGRAFIAS_DISPONIBLES,
   TIPOGRAFIAS_ESTANDAR,
 } from '../edicion/tipografias'
+import { crearCobertura, crearTextoEditado } from '../edicion/crearElementos'
+import { LINEA_BASE_APROXIMADA } from '../edicion/seleccionTexto'
 import type {
   ElementoForma,
   ElementoImagen,
@@ -216,6 +218,49 @@ describe('normalizarElemento', () => {
   })
 })
 
+describe('crearCobertura', () => {
+  it('crea una forma blanca, opaca y sin borde que se puede redimensionar', () => {
+    const cobertura = crearCobertura('cubrir-1', 2)
+
+    expect(cobertura.clase).toBe('forma')
+    expect(cobertura.figura).toBe('rectangulo')
+    expect(cobertura.relleno).toBe('#ffffff')
+    expect(cobertura.borde).toBeNull()
+    expect(cobertura.opacidad).toBe(1)
+    expect(cobertura.pagina).toBe(2)
+    expect(cobertura.ancho).toBeGreaterThan(0)
+    expect(cobertura.alto).toBeGreaterThan(0)
+  })
+})
+
+describe('crearTextoEditado', () => {
+  it('guarda fondo y palabra como un solo elemento editable', () => {
+    const editado = crearTextoEditado('editar-1', 2, {
+      texto: 'Software List',
+      colorFondo: '#f4f4f4',
+      tamano: 10,
+    })
+
+    expect(editado.clase).toBe('texto-editado')
+    expect(editado.texto).toBe('Software List')
+    expect(editado.colorFondo).toBe('#f4f4f4')
+    expect(editado.tamano).toBe(10)
+    expect(editado.pagina).toBe(2)
+  })
+
+  it('parte de una línea base aproximada mientras no se conozca la del original', () => {
+    expect(crearTextoEditado('editar-2', 1).lineaBase).toBe(
+      LINEA_BASE_APROXIMADA,
+    )
+  })
+
+  it('conserva la línea base medida sobre la palabra original', () => {
+    expect(
+      crearTextoEditado('editar-3', 1, { lineaBase: 0.72 }).lineaBase,
+    ).toBe(0.72)
+  })
+})
+
 describe('calcularCajaVisible', () => {
   const medidas = { ancho: ANCHO, alto: ALTO }
 
@@ -377,6 +422,12 @@ describe('elementoPinta', () => {
     expect(elementoPinta(texto({ texto: 'algo' }))).toBe(true)
   })
 
+  it('conserva una edición vacía porque sirve para eliminar la palabra original', () => {
+    expect(elementoPinta(crearTextoEditado('editar-1', 1, { texto: '' }))).toBe(
+      true,
+    )
+  })
+
   it('descarta una forma sin relleno ni borde', () => {
     expect(elementoPinta(forma({ relleno: null, borde: null }))).toBe(false)
     expect(elementoPinta(forma({ relleno: null, borde: '#000000' }))).toBe(true)
@@ -518,6 +569,22 @@ describe('aplicarEdicion', () => {
 
     const reabierto = await PDFDocument.load(await bytesDeBlob(resultado.blob))
     expect(reabierto.getPageCount()).toBe(3)
+  })
+
+  it('aplica fondo y texto corregido como una sola edición', async () => {
+    const resultado = await aplicar([
+      crearTextoEditado('editar-1', 1, {
+        texto: 'Software List',
+        izquierda: 0.2,
+        superior: 0.2,
+        ancho: 0.2,
+        alto: 0.03,
+      }),
+    ])
+
+    expect(resultado.elementosDibujados).toBe(1)
+    expect(resultado.elementosDescartados).toBe(0)
+    expect(resultado.tamano).toBeGreaterThan(0)
   })
 
   it('cuenta solo los elementos que dibujan algo', async () => {
